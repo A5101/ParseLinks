@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Parse.Domain;
-using Parse.Domain.Entities;
 using Parse.Service;
 using System.Text;
 
@@ -32,6 +31,38 @@ namespace Parse
                 "https://krasnodarmedia.su/",
                 "https://www.kommersant.ru/"
             };
+            List<string> list = new List<string>()
+        {
+            "https://www.kommersant.ru/",
+            "https://tass.ru/",
+            "https://tass.com/",
+            "https://www.interfax.ru/",
+            "https://ria.ru/",
+            "https://regnum.ru/",
+            "https://lenta.ru/",
+            "https://www.vedomosti.ru/",
+            "https://rg.ru/",
+            "https://www.kp.ru/",
+            "https://www.mk.ru/",
+            "https://iz.ru/",
+            "https://www.forbes.ru/",
+            "https://www.rbc.ru/",
+            "https://www.gazeta.ru/",
+            "https://vz.ru/",
+            "https://news.ru/",
+            "https://readovka.news/",
+            "https://www.vesti.ru/",
+            "https://www.1tv.ru/",
+            "https://m24.ru/",
+            "https://riamo.ru/",
+            "https://www.fontanka.ru/",
+            "https://ura.news/",
+            "https://life.ru/",
+            "https://mash.ru/",
+            "https://www.rt.com/",
+            "https://russian.rt.com/",
+            "https://sputnikglobe.com/"
+        };
 
             Parser parser = new Parser(new PostgreDbProvider(connectionString));
 
@@ -66,5 +97,5 @@ namespace Parse
 
             }
         }
-        }
     }
+}
