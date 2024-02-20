@@ -185,16 +185,17 @@ namespace Parse.Domain
             }
         }
 
-        public async Task<List<Robots>> InsertRobots(Robots robots)
+        public async Task<List<Domen>> InsertDomen(Domen domen)
         {
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             con.Open();
 
-            string sql = "INSERT INTO robots (host, file) VALUES (@host, @file)";
+            string sql = "INSERT INTO domen (host, file, rss) VALUES (@host, @file, @rss)";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
-            cmd.Parameters.AddWithValue("host", robots.Host);
-            cmd.Parameters.AddWithValue("file", robots.Content);
+            cmd.Parameters.AddWithValue("host", domen.Host);
+            cmd.Parameters.AddWithValue("file", domen.Content);
+            cmd.Parameters.AddWithValue("rss", domen.RssLink);
 
             try
             {
@@ -209,13 +210,13 @@ namespace Parse.Domain
             }
         }
 
-        public async Task<List<Robots>> GetRobots()
+        public async Task<List<Domen>> GetRobots()
         {
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
-            var result = new List<Robots>();
+            var result = new List<Domen>();
             con.Open();
 
-            string sql = "SELECT * FROM robots";
+            string sql = "SELECT * FROM domen";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
 
@@ -223,7 +224,7 @@ namespace Parse.Domain
 
             while (reader.Read())
             {
-                result.Add(new Robots(reader[0].ToString(), reader[1].ToString()));
+                result.Add(new Domen(reader[0].ToString(), reader[1].ToString(), reader[2].ToString()));
             }
             con.Close();
             return result;
@@ -234,7 +235,7 @@ namespace Parse.Domain
             using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             connection.Open();
 
-            string sql = "TRUNCATE anotherurls, robots,unaccessedurl, urlandhtml";
+            string sql = "TRUNCATE anotherurls, domen,unaccessedurl, urlandhtml";
             NpgsqlCommand cmd = new NpgsqlCommand(sql, connection);
             using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
             connection.Close();

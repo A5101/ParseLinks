@@ -1,34 +1,24 @@
-﻿using System;
+﻿using Parse.Service;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Parse.Domain.Entities
 {
-    public class Robots
+    public class Domen
     {
         [Key]
         public string Host { get; set; }
 
         public string? Content { get; }
 
-        //public List<string> AllowList
-        //{
-        //    get
-        //    {
+        public string? RssLink { get; set; }
 
-        //        return GetAllowList();
-
-
-        //    }
-        //    set
-        //    {
-
-        //    }
-        //}
         [NotMapped]
         public List<string> DisallowList
         {
@@ -41,20 +31,6 @@ namespace Parse.Domain.Entities
 
             }
         }
-
-        //private List<string> GetAllowList()
-        //{
-        //    var list = new List<string>();
-        //    var lines = Content.Split('\n');
-        //    foreach (var line in lines)
-        //    {
-        //        if (line.StartsWith("Allow"))
-        //        {
-        //            list.Add(Host + line.Trim()[7..]);
-        //        }
-        //    }
-        //    return list;
-        //}
 
         private List<string> GetDisallowList()
         {
@@ -80,18 +56,40 @@ namespace Parse.Domain.Entities
             return list;
         }
 
-        public Robots(string host)
+        public Domen(string host)
         {
-            Host = host;
-            var client = new HttpClient();
-            string file = client.GetStringAsync($"https://{host}/robots.txt").Result;
-            Content = GetCurrentAgentString(file);
+            try
+            {
+                Host = host;
+                var client = HttpClientFactory.Instance;
+                string file = client.GetStringAsync($"{host}/robots.txt").Result;
+                Content = GetCurrentAgentString(file);
+
+                if (Uri.TryCreate(host, new UriCreationOptions(), out Uri uri))
+                {
+                    var html = client.GetStringAsync("https://" + uri.Host).Result;
+                    var href = RegexMatches.GetRssHref(html);
+                    if (href[0] == '/')
+                    {
+                        RssLink = "https://" + uri.Host + href;
+                    }
+                    else
+                    {
+                        RssLink = href;
+                    }
+                }
+            }
+            catch
+            {
+                Host = host;
+            }
         }
 
-        public Robots(string host, string file)
+        public Domen(string host, string file, string rssLink)
         {
             Host = host;
             Content = file;
+            RssLink = rssLink;
         }
 
         private string GetCurrentAgentString(string str)
