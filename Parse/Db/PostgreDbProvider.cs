@@ -70,7 +70,7 @@ namespace Parse.Domain
                 string sql = "INSERT INTO anotherurls (url) VALUES (@url) ON CONFLICT DO NOTHING ";
                 using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("url", url);
-                await cmd.ExecuteNonQueryAsync();              
+                await cmd.ExecuteNonQueryAsync();
             }
             con.Close();
         }
@@ -180,7 +180,7 @@ namespace Parse.Domain
             }
             else
             {
-                con.Close(); 
+                con.Close();
                 return false;
             }
         }
@@ -239,6 +239,25 @@ namespace Parse.Domain
             NpgsqlCommand cmd = new NpgsqlCommand(sql, connection);
             using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
             connection.Close();
+        }
+
+        public async Task<StringBuilder> GetText()
+        {
+            using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
+            connection.Open();
+
+            string sql = "select text from urlandhtml";
+            NpgsqlCommand cmd = new NpgsqlCommand(sql, connection);
+            using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
+            StringBuilder text = new StringBuilder("");
+
+            while (reader.Read())
+            {
+                text.Append(reader[0].ToString());
+                text.Append(' ');
+            }
+            connection.Close();
+            return text;
         }
     }
 }

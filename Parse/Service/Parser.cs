@@ -93,7 +93,7 @@ namespace Parse.Service
                 }
 
                 robotsList = await dbProvider.InsertDomen(new Domen("https://" + currentUri.Host));
-
+                
                 string html = await client.GetStringAsync(currentUri.ToString());
 
                 parsedUrl.Title = RegexMatches.GetTitle(html);
