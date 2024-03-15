@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <Folder Include="Db\" />
+    <Folder Include="Files\" />
     <Folder Include="Properties\" />
   </ItemGroup>
 
