@@ -70,7 +70,7 @@ namespace Parse.Domain
                 string sql = "INSERT INTO anotherurls (url) VALUES (@url) ON CONFLICT DO NOTHING ";
                 using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
                 cmd.Parameters.AddWithValue("url", url);
-                await cmd.ExecuteNonQueryAsync();
+                await cmd.ExecuteNonQueryAsync();              
             }
             con.Close();
         }
@@ -180,22 +180,21 @@ namespace Parse.Domain
             }
             else
             {
-                con.Close();
+                con.Close(); 
                 return false;
             }
         }
 
-        public async Task<List<Domen>> InsertDomen(Domen domen)
+        public async Task<List<Robots>> InsertRobots(Robots robots)
         {
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             con.Open();
 
-            string sql = "INSERT INTO domen (host, file, rss) VALUES (@host, @file, @rss)";
+            string sql = "INSERT INTO robots (host, file) VALUES (@host, @file)";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
-            cmd.Parameters.AddWithValue("host", domen.Host);
-            cmd.Parameters.AddWithValue("file", domen.Content);
-            cmd.Parameters.AddWithValue("rss", domen.RssLink);
+            cmd.Parameters.AddWithValue("host", robots.Host);
+            cmd.Parameters.AddWithValue("file", robots.Content);
 
             try
             {
@@ -210,13 +209,13 @@ namespace Parse.Domain
             }
         }
 
-        public async Task<List<Domen>> GetRobots()
+        public async Task<List<Robots>> GetRobots()
         {
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
-            var result = new List<Domen>();
+            var result = new List<Robots>();
             con.Open();
 
-            string sql = "SELECT * FROM domen";
+            string sql = "SELECT * FROM robots";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
 
@@ -224,29 +223,7 @@ namespace Parse.Domain
 
             while (reader.Read())
             {
-                result.Add(new Domen(reader[0].ToString(), reader[1].ToString(), reader[2].ToString()));
-            }
-            con.Close();
-            return result;
-        }
-        public async Task<List<ParsedUrl>> GetParsedUrlsTexts()
-        {
-            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
-            var result = new List<ParsedUrl>();
-            con.Open();
-
-            string sql = "SELECT url,text FROM urlandhtml";
-
-            using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
-
-            using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
-
-            while (reader.Read())
-            {
-                ParsedUrl parsedUrl = new ParsedUrl();
-                parsedUrl.URL = reader[0].ToString();
-                parsedUrl.Text = reader[1].ToString();
-                result.Add(parsedUrl);
+                result.Add(new Robots(reader[0].ToString(), reader[1].ToString()));
             }
             con.Close();
             return result;
@@ -257,7 +234,7 @@ namespace Parse.Domain
             using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             connection.Open();
 
-            string sql = "TRUNCATE anotherurls, domen,unaccessedurl, urlandhtml";
+            string sql = "TRUNCATE anotherurls, robots,unaccessedurl, urlandhtml";
             NpgsqlCommand cmd = new NpgsqlCommand(sql, connection);
             using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
             connection.Close();

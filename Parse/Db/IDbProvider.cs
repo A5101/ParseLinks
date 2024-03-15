@@ -14,10 +14,9 @@ namespace Parse.Domain
 
         Task InsertParsedUrl(ParsedUrl parsedUrl);
 
-        Task<List<Domen>> InsertDomen(Domen robots);
+        Task<List<Robots>> InsertRobots(Robots robots);
 
-        Task<List<Domen>> GetRobots();
-        Task<List<ParsedUrl>> GetParsedUrlsTexts();
+        Task<List<Robots>> GetRobots();
 
         Task InsertAnotherLink(List<string> urls);
 
