@@ -26,21 +26,14 @@ namespace Parse.Service
 
         public static string GetRssHref(string html)
         {
-            Match match = Regex.Match(html, @"<[^>]+\btype=""application\/rss\+xml""[^>]+\bhref=""([^""]+)""");
-            if (match == Match.Empty)
-            {
-                match = Regex.Match(html, @"<[^>]+\bhref=""([^""]+)""[^>]+\btype=""application\/rss\+xml""");
-                if (match == Match.Empty)
-                {
-                    match = Regex.Match(html, @"<[^>]*?\bhref=\""([^""]*rss[^""]*)\""[^>]*>.*?<\/[^>]*>");
-                    if (match == Match.Empty)
-                    {
-                       return Regex.Match(html, @"(?:https?://[^""]*rss[^""]*)").Groups[0].Value;
-                    }
-                }
+            MatchCollection matches = Regex.Matches(html, @"<a(.*)href=""([^""]*)""(.*)></a>");
 
+            foreach (Match match in matches)
+            {
+                if (match.Groups[2].Value.Contains("rss"))
+                    return match.Groups[2].Value;
             }
-            return match.Groups[1].Value;
+            return "";
         }
 
         public static string GetTextContent(string html)
@@ -48,21 +41,6 @@ namespace Parse.Service
             string firstString = (Regex.Replace(html, @"<script[^>]*>[\s\S]*?</script>|<style[^>]*>[\s\S]*?</style>|<.*?>", " "));
             string secondString = Regex.Replace(firstString, @"<[^>]*>", " ");
             return (Regex.Replace(secondString, @"\s+", " "));
-        }
-
-        public static MatchCollection GetXmlNodes(string xml)
-        {
-            return Regex.Matches(xml, @"<[^>]+>[^<]*<\/[^>]+>");
-        }
-
-        public static MatchCollection GetItemXmlNodes(string xml)
-        {
-            return Regex.Matches(xml, @"<item>[\s\S]*?<\/item>");
-        }
-
-        public static Match GetConcreteXmlNodes(string xml, string node)
-        {
-            return Regex.Match(xml, @$"<{node}>([\s\S]*?)<\/{node}>");
         }
     }
 }

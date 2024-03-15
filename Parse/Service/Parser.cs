@@ -3,7 +3,6 @@ using Parse.Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -12,7 +11,7 @@ namespace Parse.Service
 {
     internal class Parser
     {
-        List<Domen> robotsList;
+        List<Robots> robotsList;
 
         static object consoleLock = new object();
 
@@ -36,6 +35,17 @@ namespace Parse.Service
             return false;
         }
 
+        //bool IsAllow(Uri uri)
+        //{
+        //    foreach(var allow in robotsList.FirstOrDefault(x => x.Host == uri.Host).AllowList)
+        //    {
+        //        if (uri.ToString().Contains(allow))
+        //        {
+        //            return true;
+        //        }
+        //    }
+        //    return false;
+        //}
 
         public async Task Parse()
         {
@@ -49,7 +59,7 @@ namespace Parse.Service
 
             var semaphore = new SemaphoreSlim(8);
 
-            var client = HttpClientFactory.Instance;
+            var client = new HttpClient() { Timeout = new TimeSpan(0, 0, 0, 8, 0) };
 
             var tasks = Urls.Select(async (url, index) =>
             {
@@ -77,13 +87,14 @@ namespace Parse.Service
                     await dbProvider.DeleteAnotherUrl(newUrl);
                     return;
                 }
+                Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
                 List<string> Links = new List<string>();
                 List<string> AnotherLinks = new List<string>();
 
-                ParsedUrl parsedUrl = new ParsedUrl() { URL = newUrl };
+                ParsedUrl urlEntity = new ParsedUrl() { URL = newUrl };
 
-                var currentUri = new Uri(parsedUrl.URL);
+                var currentUri = new Uri(urlEntity.URL);
 
                 var (Left, Top) = Console.GetCursorPosition();
                 lock (consoleLock)
@@ -92,13 +103,23 @@ namespace Parse.Service
                     Console.WriteLine("Паршу " + currentUri.ToString());
                 }
 
-                robotsList = await dbProvider.InsertDomen(new Domen("https://" + currentUri.Host));
+                robotsList = await dbProvider.InsertRobots(new Robots(currentUri.Host));
+
+                //if (IsDisallow(currentUri))
+                //{
+                //    lock (consoleLock)
+                //    {
+                //        Console.ForegroundColor = ConsoleColor.Yellow;
+                //        Console.WriteLine($"{currentUri} нельзя парсить");
+                //        Console.ForegroundColor = ConsoleColor.White;
+                //    }
+                //    return;
+                //}
 
                 string html = await client.GetStringAsync(currentUri.ToString());
 
-                parsedUrl.Title = RegexMatches.GetTitle(html);
-                parsedUrl.Text = RegexMatches.GetTextContent(html);
-
+                urlEntity.Title = RegexMatches.GetTitle(html);
+                var textContent = RegexMatches.GetTextContent(html);
                 var hrefsCollection = RegexMatches.GetHrefs(html);
 
                 foreach (Match href in hrefsCollection)
@@ -129,15 +150,13 @@ namespace Parse.Service
                             && !newUrlString.EndsWith(".htm/") && newUrlString != "0"
                             && !newUrlString.StartsWith("ui-") && !newUrlString.StartsWith("vicon"))
                         {
+                            Links.Add(newUrlString);
                             try
                             {
-                                if (Uri.TryCreate(newUrlString, new UriCreationOptions(), out Uri linkUri))
+                                Uri linkUri = new Uri(newUrlString);
+                                if (/*currentUri.Host != linkUri.Host &&*/ !AnotherLinks.Contains(newUrlString))
                                 {
-                                    if (/*currentUri.Host != linkUri.Host &&*/ !AnotherLinks.Contains(newUrlString))
-                                    {
-                                        AnotherLinks.Add(newUrlString);
-                                        Links.Add(newUrlString);
-                                    }
+                                    AnotherLinks.Add(newUrlString);
                                 }
                             }
                             catch
@@ -148,8 +167,7 @@ namespace Parse.Service
                                 //}
                             }
                         }
-                        parsedUrl.Links = Links;
-
+                        urlEntity.Links = Links;
                     }
                     catch
                     {
@@ -160,10 +178,10 @@ namespace Parse.Service
                     }
                 }
 
-
+                urlEntity.Text = textContent;
 
                 await dbProvider.DeleteAnotherUrl(newUrl);
-                await dbProvider.InsertParsedUrl(parsedUrl);
+                await dbProvider.InsertParsedUrl(urlEntity);
                 await dbProvider.InsertAnotherLink(AnotherLinks);
 
                 lock (consoleLock)
