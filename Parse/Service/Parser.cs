@@ -47,7 +47,7 @@ namespace Parse.Service
             robotsList = await dbProvider.GetRobots();
             var t0 = DateTime.Now;
 
-            var semaphore = new SemaphoreSlim(8);
+            var semaphore = new SemaphoreSlim(16);
 
             var client = HttpClientFactory.Instance;
 
@@ -92,12 +92,15 @@ namespace Parse.Service
                     Console.WriteLine("Паршу " + currentUri.ToString());
                 }
 
-                robotsList = await dbProvider.InsertDomen(new Domen("https://" + currentUri.Host));
-                
+                if (robotsList.FirstOrDefault(d => d.Host == "https://" + currentUri.Host) is null)
+                {
+                    robotsList = await dbProvider.InsertDomen(new Domen("https://" + currentUri.Host));
+                }
+
                 string html = await client.GetStringAsync(currentUri.ToString());
 
                 parsedUrl.Title = RegexMatches.GetTitle(html);
-                parsedUrl.Text = RegexMatches.GetTextContent(html);
+                parsedUrl.Text = await RegexMatches.GetTextContent(html);
 
                 var hrefsCollection = RegexMatches.GetHrefs(html);
 

@@ -62,22 +62,22 @@ namespace Parse.Domain.Entities
             {
                 Host = host;
                 var client = HttpClientFactory.Instance;
-                string file = client.GetStringAsync($"{host}/robots.txt").Result;
-                Content = GetCurrentAgentString(file);
+                //string file = client.GetStringAsync($"{host}/robots.txt").Result;
+                //Content = GetCurrentAgentString(file);
 
-                if (Uri.TryCreate(host, new UriCreationOptions(), out Uri uri))
-                {
-                    var html = client.GetStringAsync("https://" + uri.Host).Result;
-                    var href = RegexMatches.GetRssHref(html);
-                    if (href[0] == '/')
-                    {
-                        RssLink = "https://" + uri.Host + href;
-                    }
-                    else
-                    {
-                        RssLink = href;
-                    }
-                }
+                //if (Uri.TryCreate(host, new UriCreationOptions(), out Uri uri))
+                //{
+                //    var html = client.GetStringAsync("https://" + uri.Host).Result;
+                //    var href = RegexMatches.GetRssHref(html);
+                //    if (href[0] == '/')
+                //    {
+                //        RssLink = "https://" + uri.Host + href;
+                //    }
+                //    else
+                //    {
+                //        RssLink = href;
+                //    }
+                //}
             }
             catch
             {

@@ -263,7 +263,7 @@ namespace Parse.Domain
             connection.Close();
         }
 
-        public async Task<StringBuilder> GetText()
+        public async Task<List<string>> GetText()
         {
             using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             connection.Open();
@@ -272,14 +272,13 @@ namespace Parse.Domain
             NpgsqlCommand cmd = new NpgsqlCommand(sql, connection);
             using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
             StringBuilder text = new StringBuilder("");
-
+            List<string> texts = new List<string>();
             while (reader.Read())
             {
-                text.Append(reader[0].ToString());
-                text.Append(' ');
+                texts.Add(reader[0].ToString());
             }
             connection.Close();
-            return text;
+            return texts;
         }
     }
 }

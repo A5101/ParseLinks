@@ -1,13 +1,17 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Json;
+using System.Reflection;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Parse.Service
 {
-    internal class RegexMatches
+    public class RegexMatches
     {
         public static MatchCollection GetHrefs(string html)
         {
@@ -119,12 +123,21 @@ namespace Parse.Service
             return tag;
         }
 
-        public static string GetTextContent(string html)
+        public static async Task<string> GetTextContent(string html)
         {
             string article = Regex.Match(html, @"<article[^>]*>([\s\S]*?)</article>").Value;
             if (article == "")
             {
                 article = GetInnerContent(html, "article");
+            }
+            if (article == "")
+            {
+                article = Regex.Match(html, @"<meta\s+content=""([^""]+)""\s+name=""description""[^>]*>").Groups[1].Value;
+                if (article == "")
+                {
+                    article = Regex.Match(html, @"<meta\s+name=""description""\s+content=""([^""]+)""[^>]*>").Groups[1].Value;
+                }
+                return article;
             }
             string firstString = (Regex.Replace(article, @"<script[^>]*>[\s\S]*?</script>|<style[^>]*>[\s\S]*?</style>|<.*?>", " "));
             string secondString = Regex.Replace(firstString, @"<[^>]*>", " ");

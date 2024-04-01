@@ -192,33 +192,66 @@ namespace Parse.Service
         {
             int[,] commonMatrix = new int[dictionary.Count, dictionary.Count];
 
-            foreach (var text in textsWords)
+            Parallel.ForEach(textsWords, text =>
             {
-                int[,] matrix = new int[dictionary.Count, dictionary.Count];
-
-                for (int i = 0; i < text.Count; i++)
+                foreach (var word in text)
                 {
-                    for (int j = i + 1; j < i + windowSize + 1; j++)
+                    int startIndex = text.IndexOf(word);
+                    Parallel.For(startIndex, text.Count, i =>
                     {
-                        if (j < text.Count)
+                        for (int j = i + 1; j < i + windowSize + 1; j++)
                         {
-                            int indexWord1 = dictionary.IndexOf(text[i]);
-                            int indexWord2 = dictionary.IndexOf(text[j]);
-
-                            if (indexWord1 != -1 && indexWord2 != -1)
+                            if (j < text.Count)
                             {
-                                matrix[indexWord1, indexWord2]++;
-                                matrix[indexWord2, indexWord1]++;
+                                int indexWord1 = dictionary.IndexOf(text[i]);
+                                int indexWord2 = dictionary.IndexOf(text[j]);
+
+                                if (indexWord1 != -1 && indexWord2 != -1)
+                                {
+                                    // Синхронизируем доступ к общей матрице
+                                    lock (commonMatrix)
+                                    {
+                                        commonMatrix[indexWord1, indexWord2]++;
+                                        commonMatrix[indexWord2, indexWord1]++;
+                                    }
+                                }
                             }
                         }
-                    }
+                    });
                 }
-
-                commonMatrix = SumMatrix(commonMatrix, matrix);
-            }
+            });
 
             return commonMatrix;
         }
+
+
+        //int[,] GetCommonOccuranceMatrix(List<List<string>> textsWords, List<string> dictionary)
+        //{
+        //    int[,] commonMatrix = new int[dictionary.Count, dictionary.Count];
+
+        //    foreach (var text in textsWords)
+        //    {
+        //        for (int i = 0; i < text.Count; i++)
+        //        {
+        //            for (int j = i + 1; j < i + windowSize + 1; j++)
+        //            {
+        //                if (j < text.Count)
+        //                {
+        //                    int indexWord1 = dictionary.IndexOf(text[i]);
+        //                    int indexWord2 = dictionary.IndexOf(text[j]);
+
+        //                    if (indexWord1 != -1 && indexWord2 != -1)
+        //                    {
+        //                        commonMatrix[indexWord1, indexWord2]++;
+        //                        commonMatrix[indexWord2, indexWord1]++;
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    return commonMatrix;
+        //}
 
         int[,] SumMatrix(int[,] matrix1, int[,] matrix2)
         {

@@ -50,7 +50,7 @@ namespace Parse
 
             string connectionString = config.GetConnectionString("DefaultConnection");
 
-            Glove glove = new Glove();
+            Glove glove = new Glove(windowSize: 4);
             string[] texts = {"В современном мире, недвижимость является одной из наиболее перспективных и востребованных сфер для инвестиций. " +
                 "Инвестирование в недвижимость предоставляет возможность диверсификации портфеля, сохранения и увеличения капитала, а также получения стабильного и пассивного дохода в долгосрочной перспективе. " +
                 "С развитием информационных технологий и интернета, веб-сервисы поиска недвижимости стали важным инструментом для инвесторов, позволяющим эффективно находить и анализировать потенциальные объекты для инвестирования.\r\n" +
@@ -63,20 +63,22 @@ namespace Parse
                 "Практическая значимость исследования заключается в разработке и внедрении веб-сервиса, который позволит инвесторам оптимизировать процесс поиска и анализа недвижимости для инвестирования. При наличии удобного и надежного инструмента, " +
                 "инвесторы смогут принимать обоснованные решения на основе актуальных данных и аналитических выводов, что в свою очередь способствует повышению эффективности инвестиций и минимизации рисков.\r\nЦелью непосредственно исследования " +
                 "является теоретическая подготовка к разработке веб-сервиса поиска недвижимости для инвестиций, который предоставит инвесторам возможность эффективно находить и анализировать потенциальные объекты для инвестирования.\r\n" };
-            glove.Learn(texts: texts, iterations: 50);
-            glove.Save();
+            var db = new PostgreDbProvider(connectionString);
+            var list = await db.GetText();
+            // glove.Learn(texts: list.ToArray(), iterations: 50);
+            //glove.Save();
             List<string> urls = new List<string>()
             {
-                    "https://www.interfax.ru/business/",
-                    "https://www.interfax.ru/culture/",
-                    "https://www.sport-interfax.ru/",
-                    "https://www.interfax.ru/russia/",
-                    "https://www.interfax.ru/story/",
-                    "https://www.interfax.ru/photo/",
-                    "https://kuban.rbc.ru/",
+                 //   "https://www.interfax.ru/business/",
+                 //   "https://www.interfax.ru/culture/",
+                 //   "https://www.sport-interfax.ru/",
+                 //   "https://www.interfax.ru/russia/",
+                 //   //"https://www.interfax.ru/story/",
+                 //   "https://www.interfax.ru/photo/",
+                 //   "https://kuban.rbc.ru/",
                  "https://lenta.ru/",
-                    "https://krasnodarmedia.su/",
-                    "https://www.kommersant.ru/"
+                 //   "https://krasnodarmedia.su/",
+                 //   "https://www.kommersant.ru/"
             };
 
 
@@ -86,12 +88,15 @@ namespace Parse
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("Выберите функцию:");
             Console.ForegroundColor = ConsoleColor.Yellow;
+
             Console.WriteLine("1. First parse");
             Console.WriteLine("2. Another links parse");
             Console.WriteLine("3. Clear DB");
             Console.WriteLine("4. Parse links with iteration");
             Console.WriteLine("5. KMeans Test");
             Console.WriteLine("6. KMeans from Json");
+            Console.WriteLine("7. KMeans points test");
+            Console.ForegroundColor = ConsoleColor.White;
             string choose = Console.ReadLine();
 
             switch (choose)
@@ -99,7 +104,7 @@ namespace Parse
 
                 case "1":
                     {
-                        await parser.Parse(newList);
+                        await parser.Parse(urls);
                         break;
                     }
                 case "2":
@@ -131,7 +136,7 @@ namespace Parse
                     }
                 case "5":
                     {
-                        DisplayInfo(1);
+                        await DisplayInfo(1);
 
                         break;
                     }
@@ -143,25 +148,62 @@ namespace Parse
                         Console.WriteLine("1. Парсинг с одного JSON файла");
                         Console.WriteLine("2. Парсинг с нескольких JSON файлов");
                         string choosenType = Console.ReadLine();
-                        if( choosenType == "1" )
+                        if (choosenType == "1")
                         {
                             DisplayInfo(2);
                         }
-                        if( choosenType == "2" )
+                        if (choosenType == "2")
                         {
                             DisplayInfo(2);
                         }
 
-                     
+
+                        break;
+                    }
+                case "7":
+                    {
+                        List<double[]> data = new List<double[]>
+                        {
+                        new double[] { 2, 2 },
+                        new double[] { 3, 2 },
+                        new double[] { 2, 3 },
+                        new double[] { 1, 1 },
+                        new double[] { 9, 9 },
+                        new double[] { 8, 7 },
+                        new double[] { 10,11 },
+                        new double[] { 2, 10 },
+                        new double[] { 2, 11 },
+                        new double[] { 3, 10 },
+                        new double[] { 3, 11 },
+
+                        };
+                        int k = 3;
+
+
+                        // Вызываем метод Cluster вашей реализации K-средних
+                        KMeans kMeans = new KMeans();
+                        List<int> clusters = kMeans.Cluster(data, k);
+
+                        // Выводим результаты
+                        for (int i = 0; i < data.Count; i++)
+                        {
+                            Console.WriteLine("Точка ({0}, {1}) принадлежит кластеру {2}", data[i][0], data[i][1], clusters[i]);
+                        }
                         break;
                     }
 
 
-                 async Task DisplayInfo(int selectedMethod)
+                    async Task DisplayInfo(int selectedMethod)
                     {
+                        Glove glove = new Glove(windowSize: 20);
+                        var db = new PostgreDbProvider(connectionString);
+                        var list = await db.GetText();
+                        glove.Learn(texts: list.ToArray(), iterations: 20);
+                        glove.Save();
                         Console.ForegroundColor = ConsoleColor.Magenta;
                         Console.WriteLine("Загрузка модели...");
-                        Dictionary<string, double[]> wordVectors = KMeans.ReadWordVectorsFromFile("C:\\Users\\Kirill\\source\\repos\\ParseLinks\\Parse\\Files\\word_vectors.txt");
+                        //Dictionary<string, double[]> wordVectors = KMeans.ReadWordVectorsFromFile("word_vectors.txt");
+                        Dictionary<string, double[]> wordVectors = glove.model;
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine($"Модель загружена. Размер модели: {wordVectors.Count} слов");
                         Console.ForegroundColor = ConsoleColor.White;
@@ -170,11 +212,11 @@ namespace Parse
                         Console.ForegroundColor = ConsoleColor.Magenta;
                         Console.WriteLine("Получаем тексты страниц...");
                         List<ParsedUrl> texts = new List<ParsedUrl>();
-                        if(selectedMethod == 1)
+                        if (selectedMethod == 1)
                         {
                             texts = await dbProvider.GetParsedUrlsTexts();
                         }
-                        else if(selectedMethod == 2) 
+                        else if (selectedMethod == 2)
                         {
                             string jsonFilePath = "C:\\Users\\Kirill\\Desktop\\University\\Диплом\\compilation.json";
                             string jsonData = File.ReadAllText(jsonFilePath);
@@ -190,7 +232,7 @@ namespace Parse
                                 texts.Add(parsedUrl);
                             }
                         }
-                        else if(selectedMethod == 3) 
+                        else if (selectedMethod == 3)
                         {
                             string jsonFilePath = "C:\\Users\\Kirill\\Desktop\\University\\Диплом\\";
                         }
@@ -234,18 +276,36 @@ namespace Parse
                         KMeans kMeans = new KMeans();
 
                         List<int> clusters = kMeans.Cluster(textVectors, clusterCount);
-
-                        for (int i = 0; i < clusters.Count; i++)
+                        var listlist = new List<List<int>>();
+                        for (int i = 0; i < clusterCount; i++)
                         {
-                            if (clusters[i] == 1)
+                            listlist.Add(clusters.Select((c, k) => new { Value = c, Index = k })
+                                                 .Where(x => x.Value == i)
+                                                 .Select(x => x.Index)
+                                                 .ToList());
+                        }
+                        for (int i = 0; i < listlist.Count; i++)
+                        {
+                            Console.WriteLine($"Кластер {i}:");
+                            for (int k = 0; k < listlist[i].Count; k++)
                             {
-                                Console.WriteLine($"Текст {i} принадлежит кластеру {clusters[i]}.");
+                                Console.WriteLine($"Текст {listlist[i][k]}");
                                 Console.ForegroundColor = ConsoleColor.Green;
-                                string url = texts[i].URL.ToString();
+                                string url = texts[listlist[i][k]].URL.ToString();
                                 string decodedUrl = Uri.UnescapeDataString(url);
                                 Console.WriteLine($"{decodedUrl}");
                                 Console.ForegroundColor = ConsoleColor.Magenta;
                             }
+                            Console.WriteLine();
+                            //if (clusters[i] == 1)
+                            //{
+                            //Console.WriteLine($"Текст {i} принадлежит кластеру {clusters[i]}.");
+                            //Console.ForegroundColor = ConsoleColor.Green;
+                            //string url = texts[i].URL.ToString();
+                            //string decodedUrl = Uri.UnescapeDataString(url);
+                            //Console.WriteLine($"{decodedUrl}");
+                            //Console.ForegroundColor = ConsoleColor.Magenta;
+                            // }
 
                         }
                         Console.ForegroundColor = ConsoleColor.Magenta;

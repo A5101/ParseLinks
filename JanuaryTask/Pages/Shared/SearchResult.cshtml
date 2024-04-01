@@ -1,0 +1,20 @@
+﻿@page "/searchresult"
+@model JanuaryTask.Pages.Shared.SearchResultModel
+@{
+}
+<h3 class="mb-3">Результаты поиска по запросу «@Model.Request»</h3>
+@if(Model.Result.Count>0)
+{
+    @foreach (var entity in Model.Result)
+    {
+        <div class="list-group-item mb-3" style="border-radius: 2ex !important;">
+            <a class="fw-bold" href="@entity.Url">@entity.Tittle</a>
+            <p>...@Html.Raw(entity.MatchContent)..</p>
+        </div>
+    }
+}
+else
+{
+    <h4>Упс...Кажется, мы ничего не нашли &#129300;</h4>
+}
+
