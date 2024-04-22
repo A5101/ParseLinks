@@ -1,7 +1,10 @@
-﻿using Parse.Domain;
+﻿using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using Parse.Domain;
 using Parse.Domain.Entities;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Drawing;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -78,119 +81,130 @@ namespace Parse.Service
                     return;
                 }
 
-                List<string> Links = new List<string>();
-                List<string> AnotherLinks = new List<string>();
-
-                ParsedUrl parsedUrl = new ParsedUrl() { URL = newUrl };
-
-                var currentUri = new Uri(parsedUrl.URL);
-
-                var (Left, Top) = Console.GetCursorPosition();
+                var (left, top) = (0, 0);
                 lock (consoleLock)
                 {
-                    (Left, Top) = Console.GetCursorPosition();
-                    Console.WriteLine("Паршу " + currentUri.ToString());
+                    (left, top) = Console.GetCursorPosition();
+                    Console.ForegroundColor = ConsoleColor.White;
+                    Console.WriteLine($"Паршу {newUrl}");
                 }
 
-                if (robotsList.FirstOrDefault(d => d.Host == "https://" + currentUri.Host) is null)
-                {
-                    robotsList = await dbProvider.InsertDomen(new Domen("https://" + currentUri.Host));
-                }
+                var parsedUrl = await ParseUrlAsync(newUrl, client);
 
-                string html = await client.GetStringAsync(currentUri.ToString());
-
-                parsedUrl.Title = RegexMatches.GetTitle(html);
-                parsedUrl.Text = await RegexMatches.GetTextContent(html);
-
-                var hrefsCollection = RegexMatches.GetHrefs(html);
-
-                foreach (Match href in hrefsCollection)
-                {
-                    try
-                    {
-                        int firstIndex = href.Value.IndexOf('"') + 1;
-                        int lastIndex = href.Value.LastIndexOf('"');
-                        int Lenght = lastIndex - firstIndex;
-                        string newUrlString = href.Value.Substring(firstIndex, Lenght);
-                        if (newUrlString[0] == '/')
-                        {
-                            if (newUrlString[1] == '/')
-                                newUrlString = "https:" + newUrlString;
-                            else
-                                newUrlString = "https://" + currentUri.Host + newUrlString;
-                        }
-                        if (!newUrlString.StartsWith("#") && !newUrlString.StartsWith("mailto:")
-                            && !newUrlString.StartsWith("whatsapp://") && !newUrlString.StartsWith("viber://")
-                            && !newUrlString.StartsWith("android-app") && !newUrlString.Contains(".css")
-                            && !newUrlString.Contains("twitter") && !newUrlString.Contains("facebook")
-                            && !newUrlString.StartsWith("tg://") && !newUrlString.EndsWith(".woff2")
-                            && !newUrlString.EndsWith(".svg") && !newUrlString.EndsWith(".rss")
-                            && !newUrlString.EndsWith(".png") && !newUrlString.Contains("apple.com")
-                            && !newUrlString.EndsWith(".jpg") && !newUrlString.EndsWith(".ico")
-                            && !newUrlString.EndsWith(".js") && !newUrlString.EndsWith(".json")
-                            && !newUrlString.EndsWith(".css") && !newUrlString.EndsWith(".htm")
-                            && !newUrlString.EndsWith(".htm/") && newUrlString != "0"
-                            && !newUrlString.StartsWith("ui-") && !newUrlString.StartsWith("vicon"))
-                        {
-                            try
-                            {
-                                if (Uri.TryCreate(newUrlString, new UriCreationOptions(), out Uri linkUri))
-                                {
-                                    if (/*currentUri.Host != linkUri.Host &&*/ !AnotherLinks.Contains(newUrlString))
-                                    {
-                                        AnotherLinks.Add(newUrlString);
-                                        Links.Add(newUrlString);
-                                    }
-                                }
-                            }
-                            catch
-                            {
-                                //lock (consoleLock)
-                                //{
-                                //    Console.WriteLine($"Ошибка в {newUrlString} при создании URI после парсинга");
-                                //}
-                            }
-                        }
-                        parsedUrl.Links = Links;
-
-                    }
-                    catch
-                    {
-                        //lock (consoleLock)
-                        //{
-                        //    Console.WriteLine($"Ошибка в {href} при обработке после парсинга");
-                        //}
-                    }
-                }
-
-
-
-                await dbProvider.DeleteAnotherUrl(newUrl);
-                await dbProvider.InsertParsedUrl(parsedUrl);
-                await dbProvider.InsertAnotherLink(AnotherLinks);
+                await SaveParsedUrlAsync(parsedUrl);
 
                 lock (consoleLock)
                 {
                     var n = Console.GetCursorPosition();
-                    Console.SetCursorPosition(0, Top);
                     Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("Паршу " + currentUri.ToString());
+                    Console.SetCursorPosition(0, top);
+                    Console.WriteLine($"Паршу {newUrl}");
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.SetCursorPosition(n.Left, n.Top);
                 }
-
             }
             catch (Exception ex)
             {
-                lock (consoleLock)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Ошибочка с ссылкой: {newUrl} " + ex.Message);
-                    Console.ForegroundColor = ConsoleColor.White;
-                }
-                await dbProvider.DeleteAnotherUrl(newUrl);
-                await dbProvider.InsertUnaccessedUrl(newUrl);
+                await HandleExceptionAsync(newUrl, ex);
             }
         }
+
+        static async Task<ParsedUrl> ParseUrlAsync(string newUrl, HttpClient client)
+        {
+            var parsedUrl = new ParsedUrl() { URL = newUrl };
+            var html = await client.GetStringAsync(newUrl);
+            Uri.TryCreate(parsedUrl.URL, new UriCreationOptions(), out Uri uri);
+            parsedUrl.Title = RegexMatches.GetTitle(html);
+            parsedUrl.Text = await RegexMatches.GetTextContent(html);
+            parsedUrl.Links = ExtractLinks(html, uri.Host);
+
+            return parsedUrl;
+        }
+
+        static List<string> ExtractLinks(string html, string host)
+        {
+            var hrefsCollection = RegexMatches.GetHrefs(html);
+            var links = new List<string>();
+
+            foreach (Match href in hrefsCollection)
+            {
+                try
+                {
+                    var newUrlString = ExtractUrlString(href.Value);
+                    if (newUrlString[0] == '/')
+                    {
+                        if (newUrlString[1] == '/')
+                            newUrlString = "https:" + newUrlString;
+                        else
+                            newUrlString = "https://" + host + newUrlString;
+                    }
+                    if (!IsIgnoredUrl(newUrlString))
+                    {
+                        if (Uri.TryCreate(newUrlString, new UriCreationOptions(), out Uri linkUri))
+                        {
+                            links.Add(newUrlString);
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return links;
+        }
+
+        static string ExtractUrlString(string hrefValue)
+        {
+            var firstIndex = hrefValue.IndexOf('"') + 1;
+            var lastIndex = hrefValue.LastIndexOf('"');
+            var length = lastIndex - firstIndex;
+            return hrefValue.Substring(firstIndex, length);
+        }
+
+        static bool IsIgnoredUrl(string url)
+        {
+            return url.StartsWith("#") || url.StartsWith("mailto:") ||
+                   url.StartsWith("whatsapp://") || url.StartsWith("viber://") ||
+                   url.StartsWith("android-app") || url.Contains(".css") ||
+                   url.Contains("twitter") || url.Contains("facebook") ||
+                   url.StartsWith("tg://") || url.EndsWith(".woff2") ||
+                   url.EndsWith(".svg") || url.EndsWith(".rss") ||
+                   url.EndsWith(".png") || url.Contains("apple.com") ||
+                   url.EndsWith(".jpg") || url.EndsWith(".ico") ||
+                   url.EndsWith(".js") || url.EndsWith(".json") ||
+                   url.EndsWith(".css") || url.EndsWith(".htm") ||
+                   url.EndsWith(".htm/") || url == "0" ||
+                   url.StartsWith("ui-") || url.StartsWith("vicon");
+        }
+
+        async Task SaveParsedUrlAsync(ParsedUrl parsedUrl)
+        {
+            await dbProvider.DeleteAnotherUrl(parsedUrl.URL);
+            await dbProvider.InsertParsedUrl(parsedUrl);
+            await dbProvider.InsertAnotherLink(parsedUrl.Links);
+        }
+
+        async Task UpdateConsoleAsync(string url, ConsoleColor color, string message, (int, int) position)
+        {
+            var currentUri = new Uri(url);
+            var (left, top) = Console.GetCursorPosition();
+            Console.SetCursorPosition(position.Item1, position.Item2);
+            Console.ForegroundColor = color;
+            Console.WriteLine($"{message} {currentUri}");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.SetCursorPosition(left, top);
+        }
+
+        async Task HandleExceptionAsync(string url, Exception ex)
+        {
+            lock (consoleLock)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Ошибочка с ссылкой: {url} " + ex.Message);
+                Console.ForegroundColor = ConsoleColor.White;
+            }
+            await dbProvider.DeleteAnotherUrl(url);
+            await dbProvider.InsertUnaccessedUrl(url);
+        }
+
     }
 }

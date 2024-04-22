@@ -1,19 +1,14 @@
-﻿using Newtonsoft.Json;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Text.Json.Serialization;
+﻿using DeepMorphy;
+using Newtonsoft.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Parse.Service
 {
     class Glove
     {
-        public Dictionary<string, double[]> model { get; }
+        Lemmatizator lemmatizator;
+
+        public Dictionary<string, double[]> Model { get; }
 
         private int vectorScale;
 
@@ -28,64 +23,129 @@ namespace Parse.Service
             this.vectorScale = vectorScale;
             this.windowSize = windowSize;
             this.learningRate = learningRate;
-            model = new Dictionary<string, double[]>();
+            Model = new Dictionary<string, double[]>();
+            lemmatizator = new Lemmatizator();
         }
 
         public void Learn(string[] texts, int iterations)
         {
             var textsWords = GetTextsWords(texts);
-
             var dictionary = GetDictionary(textsWords);
-
-
 
             var matrix = GetCommonOccuranceMatrix(textsWords, dictionary);
 
-            foreach (var word in dictionary)
+            InitializeModel(dictionary);
+
+            var xmax = GetMax(matrix);
+
+            for (int i = 0; i < Model.Count; i++)
             {
-                double[] doubles = Enumerable.Range(0, vectorScale)
-                                             .Select(_ => Random.Shared.Next(-9999, 10000) / 10000.0)
-                                             .ToArray();
-                model.Add(word, doubles);
+                for (int j = i; j < Model.Count; j++)
+                {
+                    if (matrix[i, j] != 0)
+                    {
+                        Console.WriteLine($"i={i}     j={j}    {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                    }
+                }
             }
 
-            int xmax = GetMax(matrix);
 
-            int i1 = 0, j1 = 3;
-
-            double lossij = ComputeLoss(model[dictionary[i1]], model[dictionary[j1]], matrix[i1, j1]);
-
+            //Parallel.For(0, iterations, i =>
+            //{
+            //    UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax);
+            //});
 
             for (int iteration = 0; iteration < iterations; iteration++)
             {
-                for (int i = 0; i < dictionary.Count; i++)
+                UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax);
+            }
+
+            for (int i = 0; i < Model.Count; i++)
+            {
+                for (int j = i; j < Model.Count; j++)
                 {
-                    string word1 = dictionary[i];
-                    for (int j = 0; j < dictionary.Count; j++)
+                    if (matrix[i, j] != 0)
                     {
-                        if (i == j) continue;
-                        int coOccurrenceCount = matrix[i, j];
-                        if (coOccurrenceCount == 0) continue;
+                        Console.WriteLine($"i={i}     j={j}    {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                    }
+                }
+            }
+        }
 
-                        string word2 = dictionary[j];
+        private void InitializeModel(List<string> dictionary)
+        {
+            foreach (var word in dictionary)
+            {
+                var doubles = Enumerable.Range(0, vectorScale)
+                                        .Select(_ => Random.Shared.Next(-9999, 10000) / 10000.0)
+                                        .ToArray();
+                if (word is null)
+                {
+                    int i = 0;
+                }
+                Model.Add(word, doubles);
+            }
+        }
 
-                        var weight = F(coOccurrenceCount, xmax);
-                        var gradients = ComputeGradient(model[word1], model[word2], coOccurrenceCount, weight);
+        private void UpdateEmbeddingsAndComputeLoss(int[,] matrix, List<string> dictionary, int xmax)
+        {
+            //Parallel.For(0, dictionary.Count, i =>
+            //{
+            //    string word1 = dictionary[i];
+            //    Parallel.For(0, dictionary.Count, j =>
+            //    {
+            //        if (i != j)
+            //        {
+            //            int coOccurrenceCount = matrix[i, j];
+            //            if (coOccurrenceCount != 0)
+            //            {
 
+            //                string word2 = dictionary[j];
+
+            //                var weight = F(coOccurrenceCount, xmax);
+            //                var gradients = ComputeGradient(Model[word1], Model[word2], coOccurrenceCount, weight);
+
+            //                lock (Model)
+            //                {
+            //                    UpdateEmbeddings(word1, gradients.Item1, learningRate);
+            //                    UpdateEmbeddings(word2, gradients.Item2, learningRate);
+            //                }
+            //            }
+            //        }
+            //    });
+            //});
+            for (int i = 0; i < dictionary.Count; i++)
+            {
+                string word1 = dictionary[i];
+                for (int j = 0; j < dictionary.Count; j++)
+                {
+                    if (i == j) continue;
+                    int coOccurrenceCount = matrix[i, j];
+                    if (coOccurrenceCount == 0) continue;
+
+                    string word2 = dictionary[j];
+
+                    var weight = F(coOccurrenceCount, xmax);
+                    var gradients = ComputeGradient(Model[word1], Model[word2], coOccurrenceCount, weight);
+
+                    lock (Model)
+                    {
                         UpdateEmbeddings(word1, gradients.Item1, learningRate);
                         UpdateEmbeddings(word2, gradients.Item2, learningRate);
                     }
                 }
             }
-
-            double lossijNew = ComputeLoss(model[dictionary[i1]], model[dictionary[j1]], matrix[i1, j1]);
         }
 
         public void UpdateEmbeddings(string word, double[] gradient, double learningRate)
         {
-            for (int i = 0; i < model[word].Length; i++)
+            //Parallel.For(0, Model[word].Length, i =>
+            //{
+            //    Model[word][i] -= learningRate * gradient[i];
+            //});
+            for (int i = 0; i < Model[word].Length; i++)
             {
-                model[word][i] -= learningRate * gradient[i];
+                Model[word][i] -= learningRate * gradient[i];
             }
         }
 
@@ -94,7 +154,6 @@ namespace Parse.Service
             double innerProduct = Dot(embedding1, embedding2);
 
             double logCooccurrence = Math.Log(cooccurrenceCount);
-            double loss = weight * Math.Pow(innerProduct - logCooccurrence, 2) / 2;
 
             double[] gradient1 = new double[embedding1.Length];
             double[] gradient2 = new double[embedding2.Length];
@@ -106,6 +165,30 @@ namespace Parse.Service
             }
 
             return (gradient1, gradient2);
+        }
+
+        public async Task<double[]> GetTextVector(string text)
+        {
+            int matchCount = 0;
+            List<double[]> wordVectorsInText = new List<double[]>();
+            foreach (string word in RegexMatches.RemovePunctuation(text).Split(' '))
+            {
+                if (!string.IsNullOrWhiteSpace(word) && Model.TryGetValue(lemmatizator.GetLemma(word), out double[] values))
+                {
+                    wordVectorsInText.Add(values);
+                    matchCount++;
+                }
+            }
+            double[] averageVector = new double[wordVectorsInText.First().Length];
+            if (wordVectorsInText.Any())
+            {
+                for (int i = 0; i < wordVectorsInText.First().Length; i++)
+                    averageVector[i] = wordVectorsInText.Select(w => w[i]).Average();
+            }
+            Console.WriteLine($"Всего слов в тексте: {text.Split(' ').Count()}");
+            Console.WriteLine($"Найдено совпадений: {matchCount}");
+            Console.WriteLine(" ");
+            return averageVector;
         }
 
         double ComputeLoss(double[] vector1, double[] vector2, int coOccurrenceCount)
@@ -123,7 +206,7 @@ namespace Parse.Service
             return Math.Pow(x / xmax, a);
         }
 
-        int GetMax(int[,] matrix)
+        static int GetMax(int[,] matrix)
         {
             int xmax = 0;
             for (int i = 0; i < matrix.GetLength(0); i++)
@@ -145,47 +228,28 @@ namespace Parse.Service
             return v1.Select((v, i) => v * v2[i]).Sum();
         }
 
-        List<List<string>> GetTextsWords(string[] texts)
+        private List<List<string>> GetTextsWords(string[] texts)
         {
-            var res = new List<List<string>>();
-
-            foreach (var text in texts)
-            {
-                var newText = RemovePunctuation(text).ToLower().Split(" ").ToList();
-                newText.RemoveAll(s => s == "");
-                newText.ForEach(s =>
-                {
-                    s = s.Replace("\n", "");
-                    s = s.Replace("\r", "");
-                });
-                res.Add(newText);
-            }
-
+            var res = texts.Where(s => !string.IsNullOrWhiteSpace(s))
+                .Select(text => RegexMatches.RemovePunctuation(text)
+                                         .ToLower()
+                                         .Split(" ")
+                                         .Where(s => !string.IsNullOrWhiteSpace(s))
+                                         .Select(s => lemmatizator.GetLemma(s))
+                                         .ToList())
+                        .ToList();
+            lemmatizator.Save();
             return res;
         }
 
-        static List<string> GetDictionary(List<List<string>> texts)
+        private List<string> GetDictionary(List<List<string>> texts)
         {
-            List<string> dictionary = new List<string>();
             string jsonFilePath = "stopwords-ru.json";
-
-            string jsonText = File.ReadAllText(jsonFilePath);
-
-            var stopwords = JsonConvert.DeserializeObject<List<string>>(jsonText);
-
-            foreach (var text in texts)
-            {
-                foreach (var word in text)
-                {
-                    if (!dictionary.Contains(word) && !stopwords.Contains(word))
-                    {
-                        dictionary.Add(word);
-                    }
-                }
-            }
-
-
-            return dictionary;
+            var stopwords = JsonConvert.DeserializeObject<List<string>>(File.ReadAllText(jsonFilePath));
+            return texts.SelectMany(text => text.Where(t => !string.IsNullOrWhiteSpace(t)))
+                        .Distinct()
+                        //.Where(word => !stopwords.Contains(word))
+                        .ToList();
         }
 
         int[,] GetCommonOccuranceMatrix(List<List<string>> textsWords, List<string> dictionary)
@@ -194,90 +258,34 @@ namespace Parse.Service
 
             Parallel.ForEach(textsWords, text =>
             {
-                foreach (var word in text)
+                for (int i = 0; i < text.Count; i++)
                 {
-                    int startIndex = text.IndexOf(word);
-                    Parallel.For(startIndex, text.Count, i =>
+                    for (int j = i + 1; j < i + windowSize + 1; j++)
                     {
-                        for (int j = i + 1; j < i + windowSize + 1; j++)
+                        if (j < text.Count)
                         {
-                            if (j < text.Count)
-                            {
-                                int indexWord1 = dictionary.IndexOf(text[i]);
-                                int indexWord2 = dictionary.IndexOf(text[j]);
+                            int indexWord1 = dictionary.IndexOf(text[i]);
+                            int indexWord2 = dictionary.IndexOf(text[j]);
 
-                                if (indexWord1 != -1 && indexWord2 != -1)
+                            if (indexWord1 != -1 && indexWord2 != -1 && indexWord1 != indexWord2)
+                            {
+                                lock (commonMatrix)
                                 {
-                                    // Синхронизируем доступ к общей матрице
-                                    lock (commonMatrix)
-                                    {
-                                        commonMatrix[indexWord1, indexWord2]++;
-                                        commonMatrix[indexWord2, indexWord1]++;
-                                    }
+                                    commonMatrix[indexWord1, indexWord2]++;
+                                    commonMatrix[indexWord2, indexWord1]++;
                                 }
                             }
                         }
-                    });
+                    }
                 }
             });
 
             return commonMatrix;
         }
 
-
-        //int[,] GetCommonOccuranceMatrix(List<List<string>> textsWords, List<string> dictionary)
-        //{
-        //    int[,] commonMatrix = new int[dictionary.Count, dictionary.Count];
-
-        //    foreach (var text in textsWords)
-        //    {
-        //        for (int i = 0; i < text.Count; i++)
-        //        {
-        //            for (int j = i + 1; j < i + windowSize + 1; j++)
-        //            {
-        //                if (j < text.Count)
-        //                {
-        //                    int indexWord1 = dictionary.IndexOf(text[i]);
-        //                    int indexWord2 = dictionary.IndexOf(text[j]);
-
-        //                    if (indexWord1 != -1 && indexWord2 != -1)
-        //                    {
-        //                        commonMatrix[indexWord1, indexWord2]++;
-        //                        commonMatrix[indexWord2, indexWord1]++;
-        //                    }
-        //                }
-        //            }
-        //        }
-        //    }
-
-        //    return commonMatrix;
-        //}
-
-        int[,] SumMatrix(int[,] matrix1, int[,] matrix2)
-        {
-            int[,] res = new int[matrix1.GetLength(0), matrix1.GetLength(1)];
-
-            for (int i = 0; i < matrix1.GetLength(0); i++)
-            {
-                for (int j = 0; j < matrix1.GetLength(1); j++)
-                {
-                    res[i, j] = matrix1[i, j] + matrix2[i, j];
-                }
-            }
-
-            return res;
-        }
-
-        static string RemovePunctuation(string input)
-        {
-            return Regex.Replace(input, @"[\p{P}\p{S}]", " ");
-        }
-
         public void Save()
         {
-            var write = new StreamWriter(@"model.json");
-            write.WriteLine(JsonConvert.SerializeObject(model));
-            write.Close();
+            FileManager.SaveModel(Model);
         }
     }
 }

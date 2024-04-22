@@ -28,6 +28,11 @@ namespace Parse.Service
             else return "Title";
         }
 
+        public static string RemovePunctuation(string input)
+        {
+            return Regex.Replace(input, @"[\p{P}\p{S}\xC2\xA0]", " ");
+        }
+
         public static string GetRssHref(string html)
         {
             Match match = Regex.Match(html, @"<[^>]+\btype=""application\/rss\+xml""[^>]+\bhref=""([^""]+)""");
@@ -93,21 +98,27 @@ namespace Parse.Service
             int startIndex = 0;
             int endIndex;
             bool inDiv = false;
-
+            var matches = Regex.Matches(html, @"<div[^>]*class=""[^""]*article[^""]*""[^>]*>");
+            if (!matches.Any())
+            {
+                return -1;
+            }
+            startIndex = html.IndexOf(matches.Last().Value);
+            return startIndex;
             while (!inDiv)
             {
                 startIndex = html.IndexOf("<div", startIndex);
                 if (startIndex != -1)
                 {
                     endIndex = html.IndexOf(">", startIndex);
-                    var div = html[startIndex..endIndex];
+                    var div = html[startIndex..(endIndex + 1)];
                     if (div.Contains(targetClass))
                     {
                         inDiv = true;
                         startIndex = endIndex;
                     }
                 }
-                return -1;
+                else return -1;
             }
             return startIndex;
         }
