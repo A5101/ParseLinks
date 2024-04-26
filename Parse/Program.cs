@@ -1,11 +1,17 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using DeepMorphy;
+using DeepMorphy.Model;
+using Microsoft.Extensions.Configuration;
 using Parse.Domain;
 using Parse.Domain.Entities;
 using Parse.Service;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Newtonsoft.Json;
 
 namespace Parse
 {
@@ -32,10 +38,36 @@ namespace Parse
         [JsonPropertyName("tags")]
         public List<string> Tags { get; set; }
     }
+    class LinkParsedJsonVector
+    {
+        [JsonPropertyName("url")]
+        public string Url { get; set; }
+
+        [JsonPropertyName("source")]
+        public string Source { get; set; }
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; }
+
+        [JsonPropertyName("date")]
+        public DateTime Date { get; set; }
+
+        [JsonPropertyName("content")]
+        public string Content { get; set; }
+
+        [JsonPropertyName("category")]
+        public string Category { get; set; }
+
+        [JsonPropertyName("tags")]
+        public List<string> Tags { get; set; }
+
+        [JsonPropertyName("vector")]
+        public double[] Vector {  get; set; }
+    }
 
     class Program
     {
-        static Glove glove = new Glove(windowSize: 20, vectorScale: 200);
+        static Glove glove = new Glove(windowSize: 20, vectorScale: 300);
 
         static string connectionString = "";
 
@@ -57,53 +89,57 @@ namespace Parse
 
         static async Task DisplayInfo(int selectedMethod)
         {
-            var query = "музыкой";
+            var query = "банк";
+            int textscount = 25000;
             var db = new PostgreDbProvider(connectionString);
-            var list = await db.GetText();
             var t1 = DateTime.Now;
-            glove.Learn(texts: list.ToArray(), iterations: 30);
-            Console.WriteLine(t1.Subtract(DateTime.Now));
-            glove.Save();
 
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine("Загрузка модели...");
-
-            //Dictionary<string, double[]> wordVectors = KMeans.ReadWordVectorsFromFile("word_vectors.txt");
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"Модель загружена. Размер модели: {glove.Model.Count} слов");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine($"--------------------------------------------");
-
-            Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("Получаем тексты страниц...");
 
+
             List<ParsedUrl> texts = new List<ParsedUrl>();
+            List<string> list = new List<string>();
+            List<double[]> textVectors = new List<double[]>();
 
             if (selectedMethod == 1)
             {
+                list = await db.GetText();
                 texts = await db.GetParsedUrlsTexts();
             }
             else if (selectedMethod == 2)
             {
-                string jsonFilePath = "C:\\Users\\Kirill\\Desktop\\University\\Диплом\\compilation.json";
-                string jsonData = File.ReadAllText(jsonFilePath);
-                List<LinkParsedJson> myDataList = JsonSerializer.Deserialize<List<LinkParsedJson>>(jsonData);
-                texts = new List<ParsedUrl>();
 
+                string jsonFilePath = "vectorcompilation.json";
+                string jsonData = File.ReadAllText(jsonFilePath);
+                List<LinkParsedJsonVector> myDataList = JsonConvert.DeserializeObject<List<LinkParsedJsonVector>>(jsonData);
 
                 foreach (var data in myDataList)
                 {
                     ParsedUrl parsedUrl = new ParsedUrl();
                     parsedUrl.URL = data.Url;
-                    parsedUrl.Text = data.Content;
-                    texts.Add(parsedUrl);
+                    parsedUrl.Title = data.Title;
+                    if (!string.IsNullOrWhiteSpace(data.Content))
+                    {
+                        parsedUrl.Text = Regex.Replace(data.Content, @"<[^>]*>", " ").Replace("&quot;", "");
+                        texts.Add(parsedUrl);
+                        list.Add(Regex.Replace(data.Content, @"<[^>]*>", " "));
+                        textVectors.Add(data.Vector);
+                    }
                 }
             }
-            else if (selectedMethod == 3)
-            {
-                string jsonFilePath = "C:\\Users\\Kirill\\Desktop\\University\\Диплом\\";
-            }
+
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.WriteLine("Загрузка модели...");
+            //await glove.Learn(texts: list.Take(textscount).ToArray(), iterations: 30);
+            Console.WriteLine(t1.Subtract(DateTime.Now));
+            //glove.Save();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"Модель загружена. Размер модели: {glove.Model.Count} слов");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.WriteLine($"--------------------------------------------");
+
+            Console.WriteLine("Получаем тексты..");
+            Console.ForegroundColor = ConsoleColor.Magenta;
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"Тексты получены. Количество текстов: {texts.Count}");
@@ -112,73 +148,67 @@ namespace Parse
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("Начинаем класстеризацию текстов...");
 
-            List<double[]> textVectors = new List<double[]>();
+            
 
             Console.WriteLine("Объединяем тексты с моделью...");
 
-            int iterationCount = 1;
-            foreach (ParsedUrl text in texts)
-            {
-                Console.WriteLine($"Обрабатываем текст {iterationCount}");
-                iterationCount++;
-                var textVector = await glove.GetTextVector(text.Text);
-                textVectors.Add(textVector);
-            }
+           //int iterationCount = 1;
+            //foreach (var text in texts)
+            //{
+            //    if (iterationCount == textscount+1) break;
+            //    Console.WriteLine($"Обрабатываем текст {iterationCount}");
+            //    iterationCount++;
+            //    var textVector = await glove.GetTextVector(text.Text);
+            //    textVectors.Add(textVector);
+            //}
 
             var queryVector = await glove.GetTextVector(query);
 
-            var coslist = new List<(string, double)>();
-            for (int i = 0; i < texts.Count; i++)
+            var coslist = new List<(string, string,  double)>();
+            for (int i = 0; i < textscount; i++)
             {
-                coslist.Add((texts[i].URL, CosDistance(queryVector, textVectors[i])));
+                coslist.Add((texts[i].URL, texts[i].Title, CosDistance(queryVector, textVectors[i])));
 
             }
 
-            foreach (var item in coslist.OrderByDescending(l => l.Item2))
+            foreach (var item in coslist.OrderByDescending(l => l.Item3).Take(100))
             {
-                Console.WriteLine($"{item.Item1} сходство {item.Item2}");
+                Console.WriteLine($"{item.Item1} {item.Item2}. Сходство {item.Item3}");
             }
-
-            Console.WriteLine("Пожалуйста, укажите число кластеров:");
-            int clusterCount = Convert.ToInt32(Console.ReadLine());
-            KMeans kMeans = new KMeans();
-
-            List<int> clusters = kMeans.Cluster(textVectors, clusterCount);
-            var listlist = new List<List<int>>();
-            for (int i = 0; i < clusterCount; i++)
+            string s;
+            while ((s = Console.ReadLine()) != "exit")
             {
-                listlist.Add(clusters.Select((c, k) => new { Value = c, Index = k })
-                                     .Where(x => x.Value == i)
-                                     .Select(x => x.Index)
-                                     .ToList());
-            }
-            for (int i = 0; i < listlist.Count; i++)
-            {
-                Console.WriteLine($"Кластер {i}:");
-                for (int k = 0; k < listlist[i].Count; k++)
+                Console.WriteLine("Пожалуйста, укажите число кластеров:");
+                int clusterCount = Convert.ToInt32(s);
+                KMeans kMeans = new KMeans();
+
+                List<int> clusters = kMeans.Cluster(textVectors, clusterCount);
+                var listlist = new List<List<int>>();
+                for (int i = 0; i < clusterCount; i++)
                 {
-                    Console.WriteLine($"Текст {listlist[i][k]}");
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    string url = texts[listlist[i][k]].URL.ToString();
-                    string decodedUrl = Uri.UnescapeDataString(url);
-                    Console.WriteLine($"{decodedUrl}");
-                    Console.ForegroundColor = ConsoleColor.Magenta;
+                    listlist.Add(clusters.Select((c, k) => new { Value = c, Index = k })
+                                         .Where(x => x.Value == i)
+                                         .Select(x => x.Index)
+                                         .ToList());
                 }
-                Console.WriteLine();
-                //if (clusters[i] == 1)
-                //{
-                //Console.WriteLine($"Текст {i} принадлежит кластеру {clusters[i]}.");
-                //Console.ForegroundColor = ConsoleColor.Green;
-                //string url = texts[i].URL.ToString();
-                //string decodedUrl = Uri.UnescapeDataString(url);
-                //Console.WriteLine($"{decodedUrl}");
-                //Console.ForegroundColor = ConsoleColor.Magenta;
-                // }
-
+                for (int i = 0; i < listlist.Count; i++)
+                {
+                    Console.WriteLine($"Кластер {i}:");
+                    for (int k = 0; k < listlist[i].Count; k++)
+                    {
+                        Console.WriteLine($"Текст {listlist[i][k]}");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        string url = texts[listlist[i][k]].URL.ToString();
+                        string decodedUrl = Uri.UnescapeDataString(url);
+                        Console.WriteLine($"{decodedUrl}  {texts[listlist[i][k]].Title}");
+                        Console.ForegroundColor = ConsoleColor.Magenta;
+                    }
+                    Console.WriteLine();
+                }
+                Console.ForegroundColor = ConsoleColor.Magenta;
+                Console.WriteLine("Класстеризация завершена.");
+                Console.ForegroundColor = ConsoleColor.White;
             }
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine("Класстеризация завершена.");
-            Console.ForegroundColor = ConsoleColor.White;
         }
 
 
@@ -220,7 +250,7 @@ namespace Parse
                  //   //"https://www.interfax.ru/story/",
                  //   "https://www.interfax.ru/photo/",
                  //   "https://kuban.rbc.ru/",
-                 "https://lenta.ru/",
+                 "https://www.cyberforum.ru/",
                  //   "https://krasnodarmedia.su/",
                  //   "https://www.kommersant.ru/"
             };
@@ -228,7 +258,6 @@ namespace Parse
 
             Parser parser = new Parser(new PostgreDbProvider(connectionString));
             IDbProvider dbProvider = new PostgreDbProvider(connectionString);
-
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("Выберите функцию:");
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -286,20 +315,9 @@ namespace Parse
                     }
                 case "6":
                     {
-                        Console.ForegroundColor = ConsoleColor.White;
-                        Console.WriteLine("Выберите парсинга данных:");
                         Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("1. Парсинг с одного JSON файла");
-                        Console.WriteLine("2. Парсинг с нескольких JSON файлов");
-                        string choosenType = Console.ReadLine();
-                        if (choosenType == "1")
-                        {
-                            DisplayInfo(2);
-                        }
-                        if (choosenType == "2")
-                        {
-                            DisplayInfo(2);
-                        }
+                        Console.WriteLine("Парсинг с одного JSON файла");
+                        await DisplayInfo(2);
 
 
                         break;
@@ -335,9 +353,32 @@ namespace Parse
                         }
                         break;
                     }
-
-
-
+                case "8":
+                    {
+                        string jsonFilePath = "compilation.json";
+                        string jsonData = File.ReadAllText(jsonFilePath);
+                        List<LinkParsedJson> myDataList = System.Text.Json.JsonSerializer.Deserialize<List<LinkParsedJson>>(jsonData);
+                        List<LinkParsedJsonVector> vectorData = new List<LinkParsedJsonVector>();
+                        var count = 0;
+                        foreach (var data in myDataList.Where(d => !string.IsNullOrWhiteSpace(d.Content)))
+                        {
+                            Console.WriteLine($"Обработка текста {count++}");
+                            var newData = new LinkParsedJsonVector() 
+                            {
+                            Vector = await glove.GetTextVector(data.Content), 
+                            Content = data.Content,
+                            Url = data.Url,
+                            Title = data.Title,
+                            Tags = data.Tags,
+                            Source = data.Source,
+                            Date = data.Date,
+                            Category = data.Category
+                            };
+                            vectorData.Add(newData);
+                        }
+                        File.WriteAllText("vectorcompilation.json", JsonConvert.SerializeObject(vectorData));
+                        break;
+                    }
             }
         }
     }

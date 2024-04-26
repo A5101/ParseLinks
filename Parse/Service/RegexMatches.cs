@@ -30,7 +30,7 @@ namespace Parse.Service
 
         public static string RemovePunctuation(string input)
         {
-            return Regex.Replace(input, @"[\p{P}\p{S}\xC2\xA0]", " ");
+            return Regex.Replace(input, @"[\p{P}\p{S}\xC2\xA0]", " ").Replace("\n", "");
         }
 
         public static string GetRssHref(string html)

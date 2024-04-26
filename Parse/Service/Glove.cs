@@ -1,6 +1,7 @@
 ﻿using DeepMorphy;
 using Newtonsoft.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace Parse.Service
 {
@@ -23,115 +24,120 @@ namespace Parse.Service
             this.vectorScale = vectorScale;
             this.windowSize = windowSize;
             this.learningRate = learningRate;
-            Model = new Dictionary<string, double[]>();
+            Model = FileManager.OpenModel(useReadyModel: true);
             lemmatizator = new Lemmatizator();
         }
 
-        public void Learn(string[] texts, int iterations)
+        public async Task Learn(string[] texts, int iterations)
         {
             var textsWords = GetTextsWords(texts);
             var dictionary = GetDictionary(textsWords);
 
             var matrix = GetCommonOccuranceMatrix(textsWords, dictionary);
-
+            
             InitializeModel(dictionary);
 
             var xmax = GetMax(matrix);
 
+            double d = 0;
+            int count = 0;
             for (int i = 0; i < Model.Count; i++)
             {
                 for (int j = i; j < Model.Count; j++)
                 {
                     if (matrix[i, j] != 0)
                     {
-                        Console.WriteLine($"i={i}     j={j}    {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                        count++;
+                        d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
+                        //Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
                     }
                 }
             }
-
+            Console.WriteLine(count);
+            Console.WriteLine(d);
 
             //Parallel.For(0, iterations, i =>
             //{
             //    UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax);
             //});
 
+            var t1 = DateTime.Now;
             for (int iteration = 0; iteration < iterations; iteration++)
             {
-                UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax);
+                Console.WriteLine($"Итерация {iteration}");
+                await UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax, 10);
             }
+            Console.WriteLine($"{DateTime.Now.Subtract(t1)}");
 
+
+            d = 0;
             for (int i = 0; i < Model.Count; i++)
             {
                 for (int j = i; j < Model.Count; j++)
                 {
                     if (matrix[i, j] != 0)
                     {
-                        Console.WriteLine($"i={i}     j={j}    {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                        d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
+                        //Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
                     }
                 }
             }
+            Console.WriteLine(d);
         }
 
-        private void InitializeModel(List<string> dictionary)
+        private async Task UpdateEmbeddingsAndComputeLoss(int[,] matrix, List<string> dictionary, int xmax, int partsCount = 10)
         {
-            foreach (var word in dictionary)
+            int partSize = partsCount == 1 ? dictionary.Count / partsCount : dictionary.Count / (partsCount - 1);
+            for (int i = 0; i < partsCount; i++)
             {
-                var doubles = Enumerable.Range(0, vectorScale)
-                                        .Select(_ => Random.Shared.Next(-9999, 10000) / 10000.0)
-                                        .ToArray();
-                if (word is null)
+                var tasks = new List<Task>();
+                for (int threadId = 0; threadId < partsCount; threadId++)
                 {
-                    int i = 0;
+                    int i_StartIndex = threadId * partSize;
+                    int i_EndIndex = (threadId + 1) * partSize;
+
+                    int j_StartIndex = (i + threadId) * partSize;
+                    int j_EndIndex = (i + threadId + 1) * partSize;
+
+                    if (j_StartIndex > dictionary.Count)
+                    {
+                        int corr = dictionary.Count - partsCount * partSize;
+                        j_StartIndex -= dictionary.Count - corr;
+                        j_EndIndex -= dictionary.Count - corr;
+                    }
+
+                    // Console.WriteLine($"Поток {threadId} обрабатывает квадрат i: {i_StartIndex} - {i_EndIndex};   j: {j_StartIndex} - {j_EndIndex}");
+                    tasks.Add(Task.Factory.StartNew(() => UpdateEmbeddingsAndComputeLoss(matrix, i_StartIndex, i_EndIndex, j_StartIndex, j_EndIndex, dictionary, xmax)));
                 }
-                Model.Add(word, doubles);
+                //Console.WriteLine();
+                await Task.WhenAll(tasks);
             }
         }
 
-        private void UpdateEmbeddingsAndComputeLoss(int[,] matrix, List<string> dictionary, int xmax)
+        private void UpdateEmbeddingsAndComputeLoss(int[,] matrix, int i_StartIndex, int i_EndIndex, int j_StartIndex, int j_EndIndex, List<string> dictionary, int xmax)
         {
-            //Parallel.For(0, dictionary.Count, i =>
-            //{
-            //    string word1 = dictionary[i];
-            //    Parallel.For(0, dictionary.Count, j =>
-            //    {
-            //        if (i != j)
-            //        {
-            //            int coOccurrenceCount = matrix[i, j];
-            //            if (coOccurrenceCount != 0)
-            //            {
-
-            //                string word2 = dictionary[j];
-
-            //                var weight = F(coOccurrenceCount, xmax);
-            //                var gradients = ComputeGradient(Model[word1], Model[word2], coOccurrenceCount, weight);
-
-            //                lock (Model)
-            //                {
-            //                    UpdateEmbeddings(word1, gradients.Item1, learningRate);
-            //                    UpdateEmbeddings(word2, gradients.Item2, learningRate);
-            //                }
-            //            }
-            //        }
-            //    });
-            //});
-            for (int i = 0; i < dictionary.Count; i++)
+            for (int i = i_StartIndex; i < i_EndIndex; i++)
             {
-                string word1 = dictionary[i];
-                for (int j = 0; j < dictionary.Count; j++)
+                if (i < dictionary.Count)
                 {
-                    if (i == j) continue;
-                    int coOccurrenceCount = matrix[i, j];
-                    if (coOccurrenceCount == 0) continue;
+                    var word1 = dictionary[i];
+                    var wordEmbedding1 = Model[word1];
 
-                    string word2 = dictionary[j];
-
-                    var weight = F(coOccurrenceCount, xmax);
-                    var gradients = ComputeGradient(Model[word1], Model[word2], coOccurrenceCount, weight);
-
-                    lock (Model)
+                    for (int j = j_StartIndex; j < j_EndIndex; j++)
                     {
-                        UpdateEmbeddings(word1, gradients.Item1, learningRate);
-                        UpdateEmbeddings(word2, gradients.Item2, learningRate);
+                        if (j < dictionary.Count)
+                        {
+                            if (i == j) continue;
+                            int coOccurrenceCount = matrix[i, j];
+                            if (coOccurrenceCount == 0) continue;
+                            string word2 = dictionary[j];
+
+                            var weight = F(coOccurrenceCount, xmax);
+                            var gradients = ComputeGradient(wordEmbedding1, Model[word2], coOccurrenceCount, weight);
+
+                            UpdateEmbeddings(word1, gradients.Item1, learningRate);
+                            UpdateEmbeddings(word2, gradients.Item2, learningRate);
+                        }
                     }
                 }
             }
@@ -139,15 +145,12 @@ namespace Parse.Service
 
         public void UpdateEmbeddings(string word, double[] gradient, double learningRate)
         {
-            //Parallel.For(0, Model[word].Length, i =>
-            //{
-            //    Model[word][i] -= learningRate * gradient[i];
-            //});
             for (int i = 0; i < Model[word].Length; i++)
             {
                 Model[word][i] -= learningRate * gradient[i];
             }
         }
+
 
         public (double[], double[]) ComputeGradient(double[] embedding1, double[] embedding2, double cooccurrenceCount, double weight)
         {
@@ -171,6 +174,14 @@ namespace Parse.Service
         {
             int matchCount = 0;
             List<double[]> wordVectorsInText = new List<double[]>();
+            //Parallel.ForEach(RegexMatches.RemovePunctuation(text).Split(' '), word =>
+            //{
+            //    if (!string.IsNullOrWhiteSpace(word) && Model.TryGetValue(lemmatizator.GetLemma(word), out double[] values))
+            //    {
+            //        wordVectorsInText.Add(values);
+            //        matchCount++;
+            //    }
+            //});
             foreach (string word in RegexMatches.RemovePunctuation(text).Split(' '))
             {
                 if (!string.IsNullOrWhiteSpace(word) && Model.TryGetValue(lemmatizator.GetLemma(word), out double[] values))
@@ -182,6 +193,7 @@ namespace Parse.Service
             double[] averageVector = new double[wordVectorsInText.First().Length];
             if (wordVectorsInText.Any())
             {
+
                 for (int i = 0; i < wordVectorsInText.First().Length; i++)
                     averageVector[i] = wordVectorsInText.Select(w => w[i]).Average();
             }
@@ -199,6 +211,23 @@ namespace Parse.Service
 
             double loss = 0.5 * Math.Pow(dotProduct + bias1 + bias2 - Math.Log(coOccurrenceCount), 2);
             return loss;
+        }
+
+
+        private void InitializeModel(List<string> dictionary)
+        {
+            Model.Clear();
+            foreach (var word in dictionary)
+            {
+                var doubles = Enumerable.Range(0, vectorScale)
+                                        .Select(_ => Random.Shared.Next(-9999, 10000) / 10000.0)
+                                        .ToArray();
+                if (word is null)
+                {
+                    int i = 0;
+                }
+                Model.Add(word, doubles);
+            }
         }
 
         double F(double x, double xmax)
@@ -258,9 +287,9 @@ namespace Parse.Service
 
             Parallel.ForEach(textsWords, text =>
             {
-                for (int i = 0; i < text.Count; i++)
+                Parallel.For(0, text.Count, i =>
                 {
-                    for (int j = i + 1; j < i + windowSize + 1; j++)
+                    Parallel.For(i + 1, i + windowSize + 1, j =>
                     {
                         if (j < text.Count)
                         {
@@ -276,8 +305,8 @@ namespace Parse.Service
                                 }
                             }
                         }
-                    }
-                }
+                    });
+                });
             });
 
             return commonMatrix;

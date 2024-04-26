@@ -90,7 +90,10 @@ namespace Parse.Service
                 }
 
                 var parsedUrl = await ParseUrlAsync(newUrl, client);
-
+                if (string.IsNullOrWhiteSpace(parsedUrl.Text))
+                {
+                    parsedUrl.Text = "текст";
+                }
                 await SaveParsedUrlAsync(parsedUrl);
 
                 lock (consoleLock)

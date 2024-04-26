@@ -30,6 +30,7 @@
     <PackageReference Include="System.Text.Encoding" Version="4.3.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="7.0.0" />
     <PackageReference Include="TensorFlowSharp" Version="1.15.1" />
+    <PackageReference Include="Word2vec.Tools" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup>
