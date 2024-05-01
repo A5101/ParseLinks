@@ -14,6 +14,8 @@ namespace Parse.Domain.Entities
 
         public string? Title { get; set; }
 
+        public string Tags_ { get; set; }
+
         [Required]
         public string? Text { get; set; }
 
@@ -23,7 +25,7 @@ namespace Parse.Domain.Entities
 
         public DateTime? DateUpdated { get; set; }
 
-        public ParsedUrl() 
+        public ParsedUrl()
         {
             DateAdded = DateTime.UtcNow;
         }

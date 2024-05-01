@@ -1,11 +1,8 @@
-﻿using Parse.Domain.Entities;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Parse.Service
 {
@@ -37,6 +34,7 @@ namespace Parse.Service
             }
             return wordVectors;
         }
+
         /// <summary>
         /// Рассчет расстояния
         /// </summary>
@@ -61,9 +59,7 @@ namespace Parse.Service
         /// <returns></returns>
         private double[] CalculateCentroid(List<double[]> data, List<int> cluster)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("Рассчет центроид");
-            Console.ForegroundColor = ConsoleColor.Magenta;
+
             double[] centroid = new double[data[0].Length];
             foreach (int index in cluster)
             {
@@ -84,16 +80,46 @@ namespace Parse.Service
         {
             Random random = new Random();
             double[][] centroids = new double[k][];
-            for (int i = 0; i < k; i++)
-            {
-                centroids[i] = data[random.Next(0, data.Count)];
-            }
 
+            centroids[0] = data[random.Next(0, data.Count)];
+
+            for (int centroidIndex = 1; centroidIndex < k; centroidIndex++)
+            {
+                Console.WriteLine($"Выбираем центроиду:{centroidIndex}");
+                List<double> distances = new List<double>();
+                double totalDistance = 0;
+
+                foreach (double[] point in data)
+                {
+                    double minDistance = double.MaxValue;
+                    foreach (double[] centroid in centroids.Take(centroidIndex))
+                    {
+                        double distance = EuclideanDistance(point, centroid);
+                        double distanceSquared = distance * distance;
+                        minDistance = Math.Min(minDistance, distanceSquared);
+                    }
+                    distances.Add(minDistance);
+                    totalDistance += minDistance;
+                }
+
+                double randValue = random.NextDouble() * totalDistance;
+                double sum = 0;
+                int dataIndex = 0;
+                while (sum < randValue)
+                {
+                    sum += distances[dataIndex];
+                    dataIndex++;
+                }
+                centroids[centroidIndex] = data[dataIndex - 1];
+            }
+            Console.WriteLine("Начальные центроиды выбраны..");
             List<int> clusters = new List<int>();
 
             bool centroidsChanged = true;
+            int recalculationCount = 0;
             while (centroidsChanged)
             {
+                recalculationCount++;
                 centroidsChanged = false;
                 List<int>[] newClusters = new List<int>[k];
                 for (int i = 0; i < k; i++)
@@ -127,6 +153,7 @@ namespace Parse.Service
                         centroidsChanged = true;
                     }
                 }
+                Console.WriteLine($"Перерасчет центроидов завершен. Номер перерасчета: {recalculationCount}");
                 clusters.Clear();
                 for (int i = 0; i < data.Count; i++)
                 {

@@ -35,8 +35,8 @@ namespace Parse
         [JsonPropertyName("category")]
         public string Category { get; set; }
 
-        [JsonPropertyName("tags")]
-        public List<string> Tags { get; set; }
+        [JsonPropertyName("tags_")]
+        public string Tags_ { get; set; }
     }
     class LinkParsedJsonVector
     {
@@ -58,11 +58,11 @@ namespace Parse
         [JsonPropertyName("category")]
         public string Category { get; set; }
 
-        [JsonPropertyName("tags")]
-        public List<string> Tags { get; set; }
+        [JsonPropertyName("tags_")]
+        public string Tags_ { get; set; }
 
         [JsonPropertyName("vector")]
-        public double[] Vector {  get; set; }
+        public double[] Vector { get; set; }
     }
 
     class Program
@@ -89,7 +89,7 @@ namespace Parse
 
         static async Task DisplayInfo(int selectedMethod)
         {
-            var query = "банк";
+            var query = "Крым сегодня";
             int textscount = 25000;
             var db = new PostgreDbProvider(connectionString);
             var t1 = DateTime.Now;
@@ -118,6 +118,7 @@ namespace Parse
                     ParsedUrl parsedUrl = new ParsedUrl();
                     parsedUrl.URL = data.Url;
                     parsedUrl.Title = data.Title;
+                    parsedUrl.Tags_ = data.Tags_;
                     if (!string.IsNullOrWhiteSpace(data.Content))
                     {
                         parsedUrl.Text = Regex.Replace(data.Content, @"<[^>]*>", " ").Replace("&quot;", "");
@@ -132,7 +133,7 @@ namespace Parse
             Console.WriteLine("Загрузка модели...");
             //await glove.Learn(texts: list.Take(textscount).ToArray(), iterations: 30);
             Console.WriteLine(t1.Subtract(DateTime.Now));
-            //glove.Save();
+            //glove.Save();А
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"Модель загружена. Размер модели: {glove.Model.Count} слов");
             Console.ForegroundColor = ConsoleColor.White;
@@ -148,11 +149,11 @@ namespace Parse
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("Начинаем класстеризацию текстов...");
 
-            
+
 
             Console.WriteLine("Объединяем тексты с моделью...");
 
-           //int iterationCount = 1;
+            //int iterationCount = 1;
             //foreach (var text in texts)
             //{
             //    if (iterationCount == textscount+1) break;
@@ -164,7 +165,7 @@ namespace Parse
 
             var queryVector = await glove.GetTextVector(query);
 
-            var coslist = new List<(string, string,  double)>();
+            var coslist = new List<(string, string, double)>();
             for (int i = 0; i < textscount; i++)
             {
                 coslist.Add((texts[i].URL, texts[i].Title, CosDistance(queryVector, textVectors[i])));
@@ -176,13 +177,16 @@ namespace Parse
                 Console.WriteLine($"{item.Item1} {item.Item2}. Сходство {item.Item3}");
             }
             string s;
+            Console.WriteLine("Пожалуйста, укажите число кластеров:");
             while ((s = Console.ReadLine()) != "exit")
             {
-                Console.WriteLine("Пожалуйста, укажите число кластеров:");
+
                 int clusterCount = Convert.ToInt32(s);
                 KMeans kMeans = new KMeans();
 
+                Console.WriteLine("Начинаем кластеризацию..");
                 List<int> clusters = kMeans.Cluster(textVectors, clusterCount);
+                Console.WriteLine("Кластеризация завершена.");
                 var listlist = new List<List<int>>();
                 for (int i = 0; i < clusterCount; i++)
                 {
@@ -200,7 +204,7 @@ namespace Parse
                         Console.ForegroundColor = ConsoleColor.Green;
                         string url = texts[listlist[i][k]].URL.ToString();
                         string decodedUrl = Uri.UnescapeDataString(url);
-                        Console.WriteLine($"{decodedUrl}  {texts[listlist[i][k]].Title}");
+                        Console.WriteLine($"{decodedUrl}  {texts[listlist[i][k]].Title} {texts[listlist[i][k]].Tags_}");
                         Console.ForegroundColor = ConsoleColor.Magenta;
                     }
                     Console.WriteLine();
@@ -363,16 +367,16 @@ namespace Parse
                         foreach (var data in myDataList.Where(d => !string.IsNullOrWhiteSpace(d.Content)))
                         {
                             Console.WriteLine($"Обработка текста {count++}");
-                            var newData = new LinkParsedJsonVector() 
+                            var newData = new LinkParsedJsonVector()
                             {
-                            Vector = await glove.GetTextVector(data.Content), 
-                            Content = data.Content,
-                            Url = data.Url,
-                            Title = data.Title,
-                            Tags = data.Tags,
-                            Source = data.Source,
-                            Date = data.Date,
-                            Category = data.Category
+                                Vector = await glove.GetTextVector(data.Content),
+                                Content = data.Content,
+                                Url = data.Url,
+                                Title = data.Title,
+                                Tags_ = data.Tags_,
+                                Source = data.Source,
+                                Date = data.Date,
+                                Category = data.Category
                             };
                             vectorData.Add(newData);
                         }
