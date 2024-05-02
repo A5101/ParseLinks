@@ -37,13 +37,13 @@ namespace Parse.Service
             write.Close();
         }
 
-        public static Dictionary<string, double[]> OpenModel(bool useReadyModel = true)
+        public static Dictionary<string, double[]> OpenModel(bool useReadyModel = true, string fileName = @"data.json")
         {
             if (useReadyModel)
             {
-                if (File.Exists(@"data.json"))
+                if (File.Exists(fileName))
                 {
-                    var read = new StreamReader(@"data.json");
+                    var read = new StreamReader(fileName);
                     //StringBuilder stringBuilder = new StringBuilder();
                     //string line;
                     //while ((line = read.ReadLine()) != null)

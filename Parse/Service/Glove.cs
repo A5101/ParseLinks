@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace Parse.Service
 {
-    class Glove
+    public class Glove
     {
         Lemmatizator lemmatizator;
 
@@ -19,12 +19,12 @@ namespace Parse.Service
 
         private double a = 0.75;
 
-        public Glove(int vectorScale = 50, int windowSize = 2, double learningRate = 0.01)
+        public Glove(int vectorScale = 50, int windowSize = 2, double learningRate = 0.01, bool useReadyModel = false)
         {
             this.vectorScale = vectorScale;
             this.windowSize = windowSize;
             this.learningRate = learningRate;
-            Model = FileManager.OpenModel(useReadyModel: true);
+            Model = FileManager.OpenModel(useReadyModel: useReadyModel, fileName:@"model.json");
             lemmatizator = new Lemmatizator();
         }
 
@@ -32,60 +32,72 @@ namespace Parse.Service
         {
             var textsWords = GetTextsWords(texts);
             var dictionary = GetDictionary(textsWords);
+            lemmatizator.Save();
+            Console.WriteLine($"В словаре {dictionary.Count}");
 
-            var matrix = GetCommonOccuranceMatrix(textsWords, dictionary);
-            
+            var matrix = await GetCommonOccuranceMatrix(textsWords, dictionary);
+
+            //var write = new StreamWriter(@"matrix.json");
+           // write.WriteLine(JsonConvert.SerializeObject(matrix));
+           // write.Close();
+
             InitializeModel(dictionary);
 
-            var xmax = GetMax(matrix);
+            var xmax = matrix.GetMax();
+            Console.WriteLine($"Максимум {xmax}");
 
-            double d = 0;
-            int count = 0;
-            for (int i = 0; i < Model.Count; i++)
+            string s = "1";
+            while ((s = Console.ReadLine()) != "exit")
             {
-                for (int j = i; j < Model.Count; j++)
+                iterations = int.Parse(s);
+                double d = 0;
+                int count = 0;
+                for (int i = 0; i < 1; i++)
                 {
-                    if (matrix[i, j] != 0)
+                    for (int j = i; j < 20; j++)
                     {
-                        count++;
-                        d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
-                        //Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                        if (matrix[i, j] != 0)
+                        {
+                            //count++;
+                          //  d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
+                            Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                        }
                     }
                 }
-            }
-            Console.WriteLine(count);
-            Console.WriteLine(d);
+                //Console.WriteLine(count);
+                //Console.WriteLine(d);
 
-            //Parallel.For(0, iterations, i =>
-            //{
-            //    UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax);
-            //});
+                //Parallel.For(0, iterations, i =>
+                //{
+                //    UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax);
+                //});
 
-            var t1 = DateTime.Now;
-            for (int iteration = 0; iteration < iterations; iteration++)
-            {
-                Console.WriteLine($"Итерация {iteration}");
-                await UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax, 10);
-            }
-            Console.WriteLine($"{DateTime.Now.Subtract(t1)}");
-
-
-            d = 0;
-            for (int i = 0; i < Model.Count; i++)
-            {
-                for (int j = i; j < Model.Count; j++)
+                var t1 = DateTime.Now;
+                for (int iteration = 0; iteration < iterations; iteration++)
                 {
-                    if (matrix[i, j] != 0)
+                    Console.WriteLine($"Итерация {iteration}");
+                    await UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax, 1000);
+                }
+                Console.WriteLine($"{DateTime.Now.Subtract(t1)}");
+
+
+                d = 0;
+                for (int i = 0; i < 1; i++)
+                {
+                    for (int j = i; j < 20; j++)
                     {
-                        d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
-                        //Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                        if (matrix[i, j] != 0)
+                        {
+                            //d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
+                            Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
+                        }
                     }
                 }
+              //  Console.WriteLine(d);
             }
-            Console.WriteLine(d);
         }
 
-        private async Task UpdateEmbeddingsAndComputeLoss(int[,] matrix, List<string> dictionary, int xmax, int partsCount = 10)
+        private async Task UpdateEmbeddingsAndComputeLoss(SparseMatrix matrix, List<string> dictionary, int xmax, int partsCount = 10)
         {
             int partSize = partsCount == 1 ? dictionary.Count / partsCount : dictionary.Count / (partsCount - 1);
             for (int i = 0; i < partsCount; i++)
@@ -114,7 +126,7 @@ namespace Parse.Service
             }
         }
 
-        private void UpdateEmbeddingsAndComputeLoss(int[,] matrix, int i_StartIndex, int i_EndIndex, int j_StartIndex, int j_EndIndex, List<string> dictionary, int xmax)
+        private void UpdateEmbeddingsAndComputeLoss(SparseMatrix matrix, int i_StartIndex, int i_EndIndex, int j_StartIndex, int j_EndIndex, List<string> dictionary, int xmax)
         {
             for (int i = i_StartIndex; i < i_EndIndex; i++)
             {
@@ -182,7 +194,7 @@ namespace Parse.Service
             //        matchCount++;
             //    }
             //});
-            foreach (string word in RegexMatches.RemovePunctuation(text).Split(' '))
+            foreach (string word in RegexMatches.RemovePunctuation(text).ToLower().Split(' '))
             {
                 if (!string.IsNullOrWhiteSpace(word) && Model.TryGetValue(lemmatizator.GetLemma(word), out double[] values))
                 {
@@ -235,23 +247,6 @@ namespace Parse.Service
             return Math.Pow(x / xmax, a);
         }
 
-        static int GetMax(int[,] matrix)
-        {
-            int xmax = 0;
-            for (int i = 0; i < matrix.GetLength(0); i++)
-            {
-                for (int j = 0; j < matrix.GetLength(1); j++)
-                {
-                    if (xmax < matrix[i, j])
-                    {
-                        xmax = matrix[i, j];
-                    }
-                }
-            }
-
-            return xmax;
-        }
-
         double Dot(double[] v1, double[] v2)
         {
             return v1.Select((v, i) => v * v2[i]).Sum();
@@ -281,33 +276,45 @@ namespace Parse.Service
                         .ToList();
         }
 
-        int[,] GetCommonOccuranceMatrix(List<List<string>> textsWords, List<string> dictionary)
-        {
-            int[,] commonMatrix = new int[dictionary.Count, dictionary.Count];
 
-            Parallel.ForEach(textsWords, text =>
+        async Task<SparseMatrix> GetCommonOccuranceMatrix(List<List<string>> textsWords, List<string> dictionary)
+        {
+            SparseMatrix commonMatrix = new SparseMatrix();
+            Dictionary<string, int> dict = new Dictionary<string, int>();
+            for (int i = 0; i < dictionary.Count; i++)
             {
+                dict.Add(dictionary[i], i);
+            }
+
+            int count = 0;
+            foreach(var text in textsWords)
+            {
+                
                 Parallel.For(0, text.Count, i =>
                 {
                     Parallel.For(i + 1, i + windowSize + 1, j =>
                     {
                         if (j < text.Count)
                         {
-                            int indexWord1 = dictionary.IndexOf(text[i]);
-                            int indexWord2 = dictionary.IndexOf(text[j]);
-
-                            if (indexWord1 != -1 && indexWord2 != -1 && indexWord1 != indexWord2)
+                            if (!string.IsNullOrWhiteSpace(text[i]) && !string.IsNullOrWhiteSpace(text[j]))
                             {
-                                lock (commonMatrix)
+                                int indexWord1 = dict[text[i]];
+                                int indexWord2 = dict[text[j]];
+
+                                if (indexWord1 != -1 && indexWord2 != -1 && indexWord1 != indexWord2)
                                 {
-                                    commonMatrix[indexWord1, indexWord2]++;
-                                    commonMatrix[indexWord2, indexWord1]++;
+                                    lock (commonMatrix)
+                                    {
+                                        commonMatrix[indexWord1, indexWord2]++;
+                                        commonMatrix[indexWord2, indexWord1]++;
+                                    }
                                 }
                             }
                         }
                     });
                 });
-            });
+                Console.WriteLine($"Текст {++count} обработан");
+            };
 
             return commonMatrix;
         }

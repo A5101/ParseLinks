@@ -47,26 +47,26 @@ namespace Parse.Service
 
             if (lemma is not null)
             {
-                if (lemms.Keys.Count % 1000 == 0)
-                    Console.WriteLine($"Ключей в словаре: $ {lemms.Keys.Count()}");
-                var sortedKeys = lemms.Keys
-                    .Where(k => k.Length >= 4 && k.Length <= word.Length - 2)
-                    .OrderBy(k => k.Length);
+                //if (lemms.Keys.Count % 1000 == 0)
+                //    Console.WriteLine($"Ключей в словаре: $ {lemms.Keys.Count()}");
+                //var sortedKeys = lemms.Keys
+                //    .Where(k => k.Length >= 4 && k.Length <= word.Length - 2)
+                //    .OrderBy(k => k.Length);
 
-                foreach (var key in sortedKeys)
-                {
-                    if (word.StartsWith(key))
-                    {
-                        try
-                        {
-                            lemms.Add(word, lemms[key]);
-                        }
-                        catch (Exception ex)
-                        {
-                        }
-                        return lemms[key];
-                    }
-                }
+                //foreach (var key in sortedKeys)
+                //{
+                //    if (word.StartsWith(key))
+                //    {
+                //        try
+                //        {
+                //            lemms.Add(word, lemms[key]);
+                //        }
+                //        catch (Exception ex)
+                //        {
+                //        }
+                //        return lemms[key];
+                //    }
+                //}
                 try
                 {
                     lemms.Add(word, lemma);

@@ -67,7 +67,7 @@ namespace Parse
 
     class Program
     {
-        static Glove glove = new Glove(windowSize: 20, vectorScale: 300);
+        static Glove glove;
 
         static string connectionString = "";
 
@@ -90,7 +90,8 @@ namespace Parse
         static async Task DisplayInfo(int selectedMethod)
         {
             var query = "Крым сегодня";
-            int textscount = 25000;
+            Console.Write("Количество текстов:");
+            int textscount = int.Parse(Console.ReadLine());
             var db = new PostgreDbProvider(connectionString);
             var t1 = DateTime.Now;
 
@@ -113,7 +114,7 @@ namespace Parse
                 string jsonData = File.ReadAllText(jsonFilePath);
                 List<LinkParsedJsonVector> myDataList = JsonConvert.DeserializeObject<List<LinkParsedJsonVector>>(jsonData);
 
-                foreach (var data in myDataList)
+                foreach (var data in myDataList.Take(textscount))
                 {
                     ParsedUrl parsedUrl = new ParsedUrl();
                     parsedUrl.URL = data.Url;
@@ -123,17 +124,18 @@ namespace Parse
                     {
                         parsedUrl.Text = Regex.Replace(data.Content, @"<[^>]*>", " ").Replace("&quot;", "");
                         texts.Add(parsedUrl);
-                        list.Add(Regex.Replace(data.Content, @"<[^>]*>", " "));
-                        textVectors.Add(data.Vector);
+                        list.Add(Regex.Replace(data.Content, @"<[^>]*>", " ").Replace("&quot;", ""));
+                        textVectors.Add(await glove.GetTextVector(Regex.Replace(data.Content, @"<[^>]*>", " ").Replace("&quot;", "")));
                     }
                 }
+                query = myDataList.Last().Content;
             }
 
             Console.ForegroundColor = ConsoleColor.Magenta;
             Console.WriteLine("Загрузка модели...");
-            //await glove.Learn(texts: list.Take(textscount).ToArray(), iterations: 30);
+            await glove.Learn(texts: list.Take(textscount).ToArray(), iterations: 30);
             Console.WriteLine(t1.Subtract(DateTime.Now));
-            //glove.Save();А
+            glove.Save();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"Модель загружена. Размер модели: {glove.Model.Count} слов");
             Console.ForegroundColor = ConsoleColor.White;
@@ -227,20 +229,12 @@ namespace Parse
            .Build();
 
             connectionString = config.GetConnectionString("DefaultConnection");
+            Console.Write("Размер окна:");
+            var windowSize = int.Parse(Console.ReadLine());
+            Console.Write("Размер вектора:");
+            var vectorScale = int.Parse(Console.ReadLine());
+            glove = new Glove(windowSize: windowSize, vectorScale: vectorScale, useReadyModel: true);
 
-            //Glove glove = new Glove(windowSize: 4);
-            string[] texts = {"В современном мире, недвижимость является одной из наиболее перспективных и востребованных сфер для инвестиций. " +
-                "Инвестирование в недвижимость предоставляет возможность диверсификации портфеля, сохранения и увеличения капитала, а также получения стабильного и пассивного дохода в долгосрочной перспективе. " +
-                "С развитием информационных технологий и интернета, веб-сервисы поиска недвижимости стали важным инструментом для инвесторов, позволяющим эффективно находить и анализировать потенциальные объекты для инвестирования.\r\n" +
-                "В связи с этим, была поставлена цель ¬– в ходе прохождения научно-исследовательской работы рассмотреть теоретическую часть вопроса инвестиций в недвижимость, что даст возможность начать подготовку к разработке сервиса" +
-                " поиска недвижимости для инвестиций.\r\nВыбор темы исследования обусловлен необходимостью разработки веб-сервиса поиска недвижимости для инвестиций, который бы предоставлял инвесторам удобный и надежный инструмент для" +
-                " поиска и анализа недвижимости с точки зрения ее потенциала для инвестирования. Такой веб-сервис должен учитывать особенности различных регионов и видов недвижимости, предоставлять актуальную и достоверную информацию," +
-                " а также обладать функционалом для проведения финансового анализа и оценки рисков.\r\nАктуальность данной темы обусловлена не только растущим интересом к инвестированию в недвижимость, но и необходимостью предоставления" +
-                " инвесторам эффективных инструментов и ресурсов для принятия обоснованных решений. Современные технологии и возможности искусственного интеллекта открывают широкие перспективы для создания уникальных и инновационных" +
-                " веб-сервисов, которые смогут облегчить процесс поиска и анализа объектов недвижимости для инвестиций.",
-                "Практическая значимость исследования заключается в разработке и внедрении веб-сервиса, который позволит инвесторам оптимизировать процесс поиска и анализа недвижимости для инвестирования. При наличии удобного и надежного инструмента, " +
-                "инвесторы смогут принимать обоснованные решения на основе актуальных данных и аналитических выводов, что в свою очередь способствует повышению эффективности инвестиций и минимизации рисков.\r\nЦелью непосредственно исследования " +
-                "является теоретическая подготовка к разработке веб-сервиса поиска недвижимости для инвестиций, который предоставит инвесторам возможность эффективно находить и анализировать потенциальные объекты для инвестирования.\r\n" };
             var db = new PostgreDbProvider(connectionString);
             // var list = await db.GetText();
             //glove.Learn(texts: new string[]{ "Погода была хороша однако погода была плоха"}.ToArray(), iterations: 50);

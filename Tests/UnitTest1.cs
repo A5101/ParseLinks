@@ -49,9 +49,9 @@ namespace Tests
         }
 
         [Test]
-        public void GetTextContent_ReturnsNonEmptyString()
+        public async Task GetTextContent_ReturnsNonEmptyString()
         {
-            string textContent = RegexMatches.GetTextContent(sampleHtml);
+            string textContent = await RegexMatches.GetTextContent(sampleHtml);
             Assert.IsFalse(string.IsNullOrEmpty(textContent));
         }
 
