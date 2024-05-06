@@ -38,7 +38,7 @@ namespace Parse.Domain
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             con.Open();
 
-            string sql = "INSERT INTO urlandhtml (url, title, text,links, date) VALUES (@url, @title, @text, @links, @date)";
+            string sql = "INSERT INTO urlandhtml (url, title, text,links, date, description) VALUES (@url, @title, @text, @links, @date, @description)";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
             cmd.Parameters.AddWithValue("url", parsedUrl.URL);
@@ -46,17 +46,16 @@ namespace Parse.Domain
             cmd.Parameters.AddWithValue("text", parsedUrl.Text);
             cmd.Parameters.AddWithValue("links", parsedUrl.Links);
             cmd.Parameters.AddWithValue("date", parsedUrl.DateAdded);
+            cmd.Parameters.AddWithValue("description", parsedUrl.Description);
 
             try
             {
                 await cmd.ExecuteNonQueryAsync();
                 con.Close();
-                // Console.WriteLine("Вставил новую запаршенную ссылку " + urlEntity.URL + " в " + DateTime.Now);
 
             }
             catch
             {
-                // Console.WriteLine("Небольшая заминочка на ссылке: " + urlEntity.URL);
             }
         }
 
@@ -111,7 +110,6 @@ namespace Parse.Domain
                 AnotherLinks.Add(reader[0].ToString());
             }
             connection.Close();
-            // await ClearAnotherUrls();
             return AnotherLinks;
 
         }
@@ -263,7 +261,7 @@ namespace Parse.Domain
             connection.Close();
         }
 
-        public async Task<List<string>> GetText()
+        public async Task<List<string>> GetTexts()
         {
             using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             connection.Open();
@@ -279,6 +277,23 @@ namespace Parse.Domain
             }
             connection.Close();
             return texts;
+        }
+        public async Task<List<string>> GetDescriptions()
+        {
+            using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
+            connection.Open();
+
+            string sql = "SELECT description from urlandhtml";
+            NpgsqlCommand cmd = new NpgsqlCommand( sql, connection);
+            using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
+            List<string> descriptions = new List<string>();
+            while (reader.Read())
+            {
+                descriptions.Add(reader[0].ToString());
+            }
+            connection.Close();
+
+            return descriptions;
         }
     }
 }

@@ -19,6 +19,8 @@ namespace Parse.Domain.Entities
         [Required]
         public string? Text { get; set; }
 
+        public string? Description {get; set; }
+
         public List<string>? Links { get; set; }
 
         public DateTime? DateAdded { get; set; }

@@ -90,20 +90,19 @@ namespace Parse.Service
                 }
 
                 var parsedUrl = await ParseUrlAsync(newUrl, client);
-                if (string.IsNullOrWhiteSpace(parsedUrl.Text))
+                if (!string.IsNullOrWhiteSpace(parsedUrl.Text))
                 {
-                    parsedUrl.Text = "текст";
-                }
-                await SaveParsedUrlAsync(parsedUrl);
+                    await SaveParsedUrlAsync(parsedUrl);
 
-                lock (consoleLock)
-                {
-                    var n = Console.GetCursorPosition();
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.SetCursorPosition(0, top);
-                    Console.WriteLine($"Паршу {newUrl}");
-                    Console.ForegroundColor = ConsoleColor.White;
-                    Console.SetCursorPosition(n.Left, n.Top);
+                    lock (consoleLock)
+                    {
+                        var n = Console.GetCursorPosition();
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.SetCursorPosition(0, top);
+                        Console.WriteLine($"Паршу {newUrl}");
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.SetCursorPosition(n.Left, n.Top);
+                    }
                 }
             }
             catch (Exception ex)
@@ -114,13 +113,28 @@ namespace Parse.Service
 
         static async Task<ParsedUrl> ParseUrlAsync(string newUrl, HttpClient client)
         {
-            var parsedUrl = new ParsedUrl() { URL = newUrl };
-            var html = await client.GetStringAsync(newUrl);
-            Uri.TryCreate(parsedUrl.URL, new UriCreationOptions(), out Uri uri);
-            parsedUrl.Title = RegexMatches.GetTitle(html);
-            parsedUrl.Text = await RegexMatches.GetTextContent(html);
-            parsedUrl.Links = ExtractLinks(html, uri.Host);
+            var parsedUrl = new ParsedUrl() { URL = newUrl, Links = new List<string>() };
+            var request = new HttpRequestMessage(HttpMethod.Get, newUrl);
+            var response = await client.SendAsync(request);
 
+            if (response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NoContent)
+            {
+                var contentType = response.Content.Headers.ContentType;
+                if (contentType != null)
+                {
+                    if (contentType.CharSet == null)
+                    {
+                        contentType.CharSet = Encoding.GetEncoding("windows-1251").WebName;
+                    }
+
+                    var content = await response.Content.ReadAsStringAsync();
+
+                    Uri.TryCreate(parsedUrl.URL, new UriCreationOptions(), out Uri uri);
+                    parsedUrl.Title = RegexMatches.GetTitle(content);
+                    parsedUrl.Text = await RegexMatches.GetTextContent(content);
+                    parsedUrl.Links = ExtractLinks(content, uri.Host);
+                }
+            }
             return parsedUrl;
         }
 

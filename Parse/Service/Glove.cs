@@ -19,16 +19,16 @@ namespace Parse.Service
 
         private double a = 0.75;
 
-        public Glove(int vectorScale = 50, int windowSize = 2, double learningRate = 0.01, bool useReadyModel = false)
+        public Glove(int vectorScale = 50, int windowSize = 2, double learningRate = 0.01, string modelPath = "")
         {
             this.vectorScale = vectorScale;
             this.windowSize = windowSize;
             this.learningRate = learningRate;
-            Model = FileManager.OpenModel(useReadyModel: useReadyModel, fileName:@"model.json");
+            Model = FileManager.OpenModel(modelPath: modelPath);
             lemmatizator = new Lemmatizator();
         }
 
-        public async Task Learn(string[] texts, int iterations)
+        public async Task Learn(string[] texts, int iterations, bool skipInitialize = false)
         {
             var textsWords = GetTextsWords(texts);
             var dictionary = GetDictionary(textsWords);
@@ -38,15 +38,19 @@ namespace Parse.Service
             var matrix = await GetCommonOccuranceMatrix(textsWords, dictionary);
 
             //var write = new StreamWriter(@"matrix.json");
-           // write.WriteLine(JsonConvert.SerializeObject(matrix));
-           // write.Close();
+            // write.WriteLine(JsonConvert.SerializeObject(matrix));
+            // write.Close();
 
-            InitializeModel(dictionary);
+            if (!skipInitialize)
+            {
+                InitializeModel(dictionary);
+            }
 
             var xmax = matrix.GetMax();
             Console.WriteLine($"Максимум {xmax}");
 
             string s = "1";
+            Console.Write("Количество итераций, для продолжения exit: ");
             while ((s = Console.ReadLine()) != "exit")
             {
                 iterations = int.Parse(s);
@@ -59,7 +63,7 @@ namespace Parse.Service
                         if (matrix[i, j] != 0)
                         {
                             //count++;
-                          //  d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
+                            //  d += ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j]);
                             Console.WriteLine($"i={i} j={j} {ComputeLoss(Model[dictionary[i]], Model[dictionary[j]], matrix[i, j])}");
                         }
                     }
@@ -76,7 +80,7 @@ namespace Parse.Service
                 for (int iteration = 0; iteration < iterations; iteration++)
                 {
                     Console.WriteLine($"Итерация {iteration}");
-                    await UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax, 1000);
+                    await UpdateEmbeddingsAndComputeLoss(matrix, dictionary, xmax, 100);
                 }
                 Console.WriteLine($"{DateTime.Now.Subtract(t1)}");
 
@@ -93,7 +97,7 @@ namespace Parse.Service
                         }
                     }
                 }
-              //  Console.WriteLine(d);
+                //  Console.WriteLine(d);
             }
         }
 
@@ -196,7 +200,7 @@ namespace Parse.Service
             //});
             foreach (string word in RegexMatches.RemovePunctuation(text).ToLower().Split(' '))
             {
-                if (!string.IsNullOrWhiteSpace(word) && Model.TryGetValue(lemmatizator.GetLemma(word), out double[] values))
+                if (!string.IsNullOrWhiteSpace(word) && Model.TryGetValue(word.ToLower(), out double[] values))
                 {
                     wordVectorsInText.Add(values);
                     matchCount++;
@@ -287,9 +291,9 @@ namespace Parse.Service
             }
 
             int count = 0;
-            foreach(var text in textsWords)
+            foreach (var text in textsWords)
             {
-                
+
                 Parallel.For(0, text.Count, i =>
                 {
                     Parallel.For(i + 1, i + windowSize + 1, j =>

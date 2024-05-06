@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Text;
@@ -30,7 +31,16 @@ namespace Parse.Service
 
         public static string RemovePunctuation(string input)
         {
-            return Regex.Replace(input, @"[\p{P}\p{S}\xC2\xA0]", " ").Replace("\n", "");
+            try
+            {
+                return Regex.Replace(input, @"[\p{P}\p{S}\xC2\xA0]", " ").Replace("\n", "").Replace("&quot;", "");
+            }
+            catch
+            {
+                Console.WriteLine("W A R N I N G");
+                Console.WriteLine(input);
+                return "";
+            }
         }
 
         public static string GetRssHref(string html)
@@ -51,6 +61,32 @@ namespace Parse.Service
             }
             return match.Groups[1].Value;
         }
+        public static string GetDescription(string html)
+        {
+            string pattern = @"<meta\s+property=""og:description""\s+content=""(?<Content>[^""]*)""";
+            Match match = Regex.Match(html, pattern);
+            if (match.Success)
+            {
+                return WebUtility.HtmlDecode(match.Groups["Content"].Value);
+            }
+
+            pattern = @"<meta\s+name=""description""\s+content=""(?<Content>[^""]*)""";
+            match = Regex.Match(html, pattern);
+            if (match.Success)
+            {
+                return WebUtility.HtmlDecode(match.Groups["Content"].Value);
+            }
+
+            pattern = @"<title>(?<Content>.*?)</title>";
+            match = Regex.Match(html, pattern);
+            if (match.Success)
+            {
+                return WebUtility.HtmlDecode(match.Groups["Content"].Value);
+            }
+
+            return "Title";
+        }
+
 
         static string GetInnerContent(string html, string targetClass)
         {
@@ -152,7 +188,7 @@ namespace Parse.Service
             }
             string firstString = (Regex.Replace(article, @"<script[^>]*>[\s\S]*?</script>|<style[^>]*>[\s\S]*?</style>|<.*?>", " "));
             string secondString = Regex.Replace(firstString, @"<[^>]*>", " ");
-            return (Regex.Replace(secondString, @"\s+", " "));
+            return (Regex.Replace(secondString, @"\s+", " ").Replace("&quot;", ""));
         }
 
         public static MatchCollection GetXmlNodes(string xml)

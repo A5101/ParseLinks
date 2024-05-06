@@ -37,62 +37,53 @@ namespace Parse.Service
             write.Close();
         }
 
-        public static Dictionary<string, double[]> OpenModel(bool useReadyModel = true, string fileName = @"data.json")
+        public static Dictionary<string, double[]> OpenModel(string modelPath)
         {
-            if (useReadyModel)
+            if (File.Exists(modelPath))
             {
-                if (File.Exists(fileName))
+                var read = new StreamReader(modelPath);
+                using (var jsonReader = new JsonTextReader(read))
                 {
-                    var read = new StreamReader(fileName);
-                    //StringBuilder stringBuilder = new StringBuilder();
-                    //string line;
-                    //while ((line = read.ReadLine()) != null)
-                    //{
-                    //    stringBuilder.Append(line);
-                    //}
-                    using (var jsonReader = new JsonTextReader(read))
+                    // Пропуск начального объекта (если необходимо)
+                    if (!jsonReader.Read() || jsonReader.TokenType != JsonToken.StartObject)
                     {
-                        // Пропуск начального объекта (если необходимо)
-                        if (!jsonReader.Read() || jsonReader.TokenType != JsonToken.StartObject)
-                        {
-                            throw new Exception("Expected start of object");
-                        }
-
-                        var dictionary = new Dictionary<string, double[]>();
-
-                        // Чтение и десериализация JSON-данных
-                        while (jsonReader.Read())
-                        {
-                            if (jsonReader.TokenType == JsonToken.PropertyName)
-                            {
-                                string key = jsonReader.Value.ToString();
-
-                                if (!jsonReader.Read() || jsonReader.TokenType != JsonToken.StartArray)
-                                {
-                                    throw new Exception($"Expected start of array for key {key}");
-                                }
-
-                                var values = new List<double>();
-
-                                // Чтение значений массива
-                                while (jsonReader.Read() && jsonReader.TokenType != JsonToken.EndArray)
-                                {
-                                    if (jsonReader.TokenType == JsonToken.Float || jsonReader.TokenType == JsonToken.Integer)
-                                    {
-                                        values.Add(Convert.ToDouble(jsonReader.Value));
-                                    }
-                                }
-
-                                dictionary[key] = values.ToArray();
-                            }
-                        }
-                        read.Close();
-                        return dictionary;
+                        throw new Exception("Expected start of object");
                     }
-                    //var res = JsonConvert.DeserializeObject<Dictionary<string, double[]>>("");
+
+                    var dictionary = new Dictionary<string, double[]>();
+
+                    // Чтение и десериализация JSON-данных
+                    while (jsonReader.Read())
+                    {
+                        if (jsonReader.TokenType == JsonToken.PropertyName)
+                        {
+                            string key = jsonReader.Value.ToString();
+
+                            if (!jsonReader.Read() || jsonReader.TokenType != JsonToken.StartArray)
+                            {
+                                throw new Exception($"Expected start of array for key {key}");
+                            }
+
+                            var values = new List<double>();
+
+                            // Чтение значений массива
+                            while (jsonReader.Read() && jsonReader.TokenType != JsonToken.EndArray)
+                            {
+                                if (jsonReader.TokenType == JsonToken.Float || jsonReader.TokenType == JsonToken.Integer)
+                                {
+                                    values.Add(Convert.ToDouble(jsonReader.Value));
+                                }
+                            }
+
+                            dictionary[key] = values.ToArray();
+                        }
+                    }
                     read.Close();
-                    //return res;
+                    return dictionary;
                 }
+                //var res = JsonConvert.DeserializeObject<Dictionary<string, double[]>>("");
+                read.Close();
+                //return res;
             }
             return new Dictionary<string, double[]>();
         }
