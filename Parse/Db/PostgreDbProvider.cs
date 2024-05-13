@@ -38,7 +38,7 @@ namespace Parse.Domain
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             con.Open();
 
-            string sql = "INSERT INTO urlandhtml (url, title, text,links, date, description) VALUES (@url, @title, @text, @links, @date, @description)";
+            string sql = "INSERT INTO urlandhtml (url, title, text,links, date, meta) VALUES (@url, @title, @text, @links, @date, @meta)";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
             cmd.Parameters.AddWithValue("url", parsedUrl.URL);
@@ -46,7 +46,8 @@ namespace Parse.Domain
             cmd.Parameters.AddWithValue("text", parsedUrl.Text);
             cmd.Parameters.AddWithValue("links", parsedUrl.Links);
             cmd.Parameters.AddWithValue("date", parsedUrl.DateAdded);
-            cmd.Parameters.AddWithValue("description", parsedUrl.Description);
+            cmd.Parameters.AddWithValue("meta", parsedUrl.Meta);
+            // cmd.Parameters.AddWithValue("description", parsedUrl.Description);
 
             try
             {
@@ -57,6 +58,47 @@ namespace Parse.Domain
             catch
             {
             }
+        }
+
+        public async Task InsertUrlQueue(string url)
+        {
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            con.Open();
+
+            string sql = "INSERT INTO urlqueue (url) VALUES (@url) ON CONFLICT DO NOTHING";
+
+            using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("url", url);
+
+            try
+            {
+                await cmd.ExecuteNonQueryAsync();
+                con.Close();
+
+            }
+            catch
+            {
+            }
+        }
+
+
+        public async Task InsertUrlQueue(List<string> pages)
+        {
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            con.Open();
+
+            string sql = "INSERT INTO urlqueue (url) VALUES (@url)  ON CONFLICT DO NOTHING";
+
+            using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+
+            foreach (var page in pages)
+            {
+                cmd.Parameters.AddWithValue("url", page);
+                await cmd.ExecuteNonQueryAsync();
+                cmd.Parameters.Clear();
+            }
+
+            con.Close();
         }
 
         public async Task InsertAnotherLink(List<string> urls)
@@ -138,8 +180,9 @@ namespace Parse.Domain
 
             if (reader.Read())
             {
+                var res = reader[0].ToString() == url;
                 con.Close();
-                return reader[0].ToString() == url;
+                return res;
             }
             else
             {
@@ -173,8 +216,9 @@ namespace Parse.Domain
 
             if (reader.Read())
             {
+                var res = reader[0].ToString() == url;
                 con.Close();
-                return reader[0].ToString() == url;
+                return res;
             }
             else
             {
@@ -188,12 +232,16 @@ namespace Parse.Domain
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             con.Open();
 
-            string sql = "INSERT INTO domen (host, file, rss) VALUES (@host, @file, @rss)";
+            //string sql = "INSERT INTO domen (host, file, rss) VALUES (@host, @file, @rss)";
+
+            string sql = "INSERT INTO domen (host, sitemap, isparsed) VALUES (@host, @sitemap, @isparsed)";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
             cmd.Parameters.AddWithValue("host", domen.Host);
-            cmd.Parameters.AddWithValue("file", domen.Content);
-            cmd.Parameters.AddWithValue("rss", domen.RssLink);
+            cmd.Parameters.AddWithValue("sitemap", domen.Sitemap.ToArray());
+            cmd.Parameters.AddWithValue("isparsed", domen.isParsed);
+            //cmd.Parameters.AddWithValue("file", domen.Content);
+            //cmd.Parameters.AddWithValue("rss", domen.RssLink);
 
             try
             {
@@ -201,12 +249,39 @@ namespace Parse.Domain
                 con.Close();
                 return await GetRobots();
             }
-            catch
+            catch(Exception ex)
             {
                 con.Close();
                 return await GetRobots();
             }
         }
+
+        public async Task UpdateDomen(Domen domen)
+        {
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            con.Open();
+
+            string sql = "UPDATE domen SET sitemap=@sitemap, isparsed=@isparsed WHERE host=@host";
+
+            using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+            cmd.Parameters.AddWithValue("host", domen.Host);
+            cmd.Parameters.AddWithValue("sitemap", domen.Sitemap.ToArray());
+            cmd.Parameters.AddWithValue("isparsed", domen.isParsed);
+            //cmd.Parameters.AddWithValue("file", domen.Content);
+            //cmd.Parameters.AddWithValue("rss", domen.RssLink);
+
+            try
+            {
+                await cmd.ExecuteNonQueryAsync();
+                con.Close();
+            }
+            catch (Exception ex)
+            {
+                con.Close();
+            }
+        }
+
+
 
         public async Task<List<Domen>> GetRobots()
         {
@@ -222,7 +297,10 @@ namespace Parse.Domain
 
             while (reader.Read())
             {
-                result.Add(new Domen(reader[0].ToString(), reader[1].ToString(), reader[2].ToString()));
+                result.Add(new Domen(reader[0].ToString(), 
+                    reader[1].ToString(),
+                    reader[2].ToString(),
+                    reader[3] is System.DBNull ? new List<string>() : ((string[])reader[3]).ToList()));
             }
             con.Close();
             return result;

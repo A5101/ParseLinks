@@ -13,11 +13,11 @@ namespace Parse.Service
         {
             var handler = new SocketsHttpHandler();
             handler.PooledConnectionLifetime = TimeSpan.FromSeconds(10); 
-            handler.PooledConnectionIdleTimeout = TimeSpan.FromSeconds(100);
+            handler.PooledConnectionIdleTimeout = TimeSpan.FromSeconds(10);
             handler.ConnectTimeout = TimeSpan.FromSeconds(10);
             handler.MaxConnectionsPerServer = 10;
             var httpClient = new HttpClient(handler);
-            
+            httpClient.Timeout = TimeSpan.FromSeconds(10);
             return httpClient;
         });
 

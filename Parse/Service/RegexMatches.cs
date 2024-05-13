@@ -19,14 +19,32 @@ namespace Parse.Service
             return Regex.Matches(html, @"href=""([^""])+""");
         }
 
+        public static string GetMeta(string html)
+        {
+            var m = Regex.Match(html, @"<head>([\s\S]*?)</head>");
+            return m.Groups[1].Value;
+        }
+
         public static string GetTitle(string html)
         {
-            Match match = Regex.Match(html, @"<title>(.*?)</title>");
-            if (match.Success)
+            var title = "";
+
+            if (title == "")
             {
-                return match.Groups[1].Value;
+                title = Regex.Match(html, @"<meta\s+content=""([^""]+)""\s+name=""og_title""[^>]*>").Groups[1].Value;
             }
-            else return "Title";
+
+            if (title == "")
+            {
+                title = Regex.Match(html, @"<meta\s+name=""og:title""\s+content=""([^""]+)""[^>]*>").Groups[1].Value;
+            }
+
+            if (title == "")
+            {
+                title = Regex.Match(html, @"<title>(.*?)</title>").Groups[1].Value;
+            }
+
+            return title;
         }
 
         public static string RemovePunctuation(string input)
@@ -172,20 +190,39 @@ namespace Parse.Service
 
         public static async Task<string> GetTextContent(string html)
         {
-            string article = Regex.Match(html, @"<article[^>]*>([\s\S]*?)</article>").Value;
+            string article = "";// = Regex.Match(html, @"<article[^>]*>([\s\S]*?)</article>").Value;
+                                //if (article == "")
+                                //{
+                                //    article = GetInnerContent(html, "article");
+                                //}
+                                //if (article == "")
+                                //{
+            article = Regex.Match(html, @"<meta\s+content=""([^""]+)""\s+property=""og:description""[^>]*>").Groups[1].Value;
+            article = article.Split(' ').Length < 5 ? "" : article;
+
             if (article == "")
             {
-                article = GetInnerContent(html, "article");
+                article = Regex.Match(html, @"<meta\s+property=""og:description""\s+content=""([^""]+)""[^>]*>").Groups[1].Value;
+                article = article.Split(' ').Length < 5 ? "" : article;
             }
+
+            if (article == "")
+            {
+                article = Regex.Match(html, @"<meta\s+name=""description""\s+content=""([^""]+)""[^>]*>").Groups[1].Value;
+            }
+
             if (article == "")
             {
                 article = Regex.Match(html, @"<meta\s+content=""([^""]+)""\s+name=""description""[^>]*>").Groups[1].Value;
-                if (article == "")
-                {
-                    article = Regex.Match(html, @"<meta\s+name=""description""\s+content=""([^""]+)""[^>]*>").Groups[1].Value;
-                }
-                return article;
+            }           
+
+            if (article == "")
+            {
+                article = RegexMatches.GetTitle(html);
             }
+
+            return article.Replace("&quot;", "");
+            // }
             string firstString = (Regex.Replace(article, @"<script[^>]*>[\s\S]*?</script>|<style[^>]*>[\s\S]*?</style>|<.*?>", " "));
             string secondString = Regex.Replace(firstString, @"<[^>]*>", " ");
             return (Regex.Replace(secondString, @"\s+", " ").Replace("&quot;", ""));

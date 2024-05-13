@@ -15,53 +15,57 @@ namespace Parse.Domain.Entities
         [Key]
         public string Host { get; set; }
 
-        public string? Content { get; }
+        public string Content { get; set; }
+
+        public List<string> Sitemap { get; set; }
 
         public string? RssLink { get; set; }
 
-        [NotMapped]
-        public List<string> DisallowList
-        {
-            get
-            {
-                return GetDisallowList();
-            }
-            set
-            {
+        public bool isParsed { get; set; } = false;
 
-            }
-        }
+        //[NotMapped]
+        //public List<string> DisallowList
+        //{
+        //    get
+        //    {
+        //        return GetDisallowList();
+        //    }
+        //    set
+        //    {
 
-        private List<string> GetDisallowList()
-        {
-            var list = new List<string>();
-            var lines = Content.Split('\n');
-            foreach (var line in lines)
-            {
-                if (line.Trim().StartsWith("Disallow"))
-                {
-                    string disallow = line.Trim()[10..];
-                    if (disallow.StartsWith('*') && disallow.EndsWith('*'))
-                    {
-                        list.Add(disallow.Trim('*'));
-                    }
-                    else
-                    if (disallow[0] == '/' && disallow[1] == '*')
-                    {
-                        list.Add(disallow[2..]);
-                    }
+        //    }
+        //}
 
-                }
-            }
-            return list;
-        }
+        //private List<string> GetDisallowList()
+        //{
+        //    var list = new List<string>();
+        //    var lines = Content.Split('\n');
+        //    foreach (var line in lines)
+        //    {
+        //        if (line.Trim().StartsWith("Disallow"))
+        //        {
+        //            string disallow = line.Trim()[10..];
+        //            if (disallow.StartsWith('*') && disallow.EndsWith('*'))
+        //            {
+        //                list.Add(disallow.Trim('*'));
+        //            }
+        //            else
+        //            if (disallow[0] == '/' && disallow[1] == '*')
+        //            {
+        //                list.Add(disallow[2..]);
+        //            }
+
+        //        }
+        //    }
+        //    return list;
+        //}
 
         public Domen(string host)
         {
             try
             {
                 Host = host;
-                var client = HttpClientFactory.Instance;
+                //var client = HttpClientFactory.Instance;
                 //string file = client.GetStringAsync($"{host}/robots.txt").Result;
                 //Content = GetCurrentAgentString(file);
 
@@ -85,11 +89,12 @@ namespace Parse.Domain.Entities
             }
         }
 
-        public Domen(string host, string file, string rssLink)
+        public Domen(string host, string file, string rssLink, List<string> sitemap)
         {
             Host = host;
             Content = file;
             RssLink = rssLink;
+            Sitemap = sitemap;
         }
 
         private string GetCurrentAgentString(string str)

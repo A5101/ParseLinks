@@ -27,6 +27,8 @@ namespace Parse.Domain.Entities
 
         public DateTime? DateUpdated { get; set; }
 
+        public string Meta { get; set; }
+
         public ParsedUrl()
         {
             DateAdded = DateTime.UtcNow;

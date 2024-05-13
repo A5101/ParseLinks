@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Parse.Service
@@ -26,56 +27,90 @@ namespace Parse.Service
             this.dbProvider = dbProvider;
         }
 
-        bool IsDisallow(Uri uri)
+        //bool IsDisallow(Uri uri)
+        //{
+        //    var dis = robotsList.FirstOrDefault(x => x.Host == uri.Host);
+        //    foreach (var disallow in dis.DisallowList)
+        //    {
+        //        if (uri.ToString().Contains(disallow))
+        //        {
+        //            return true;
+        //        }
+        //    }
+        //    return false;
+        //}
+
+        public async Task Parse(bool parseUniqueDomens = false)
         {
-            var dis = robotsList.FirstOrDefault(x => x.Host == uri.Host);
-            foreach (var disallow in dis.DisallowList)
-            {
-                if (uri.ToString().Contains(disallow))
-                {
-                    return true;
-                }
-            }
-            return false;
+            await Parse(await dbProvider.GetAnotherUrls(), parseUniqueDomens);
         }
 
-
-        public async Task Parse()
-        {
-            await Parse(await dbProvider.GetAnotherUrls());
-        }
-
-        public async Task Parse(List<string> Urls)
+        public async Task Parse(List<string> Urls, bool parseUniqueDomens = false)
         {
             robotsList = await dbProvider.GetRobots();
             var t0 = DateTime.Now;
+            List<Task> tasks = new List<Task>();
 
+            if (parseUniqueDomens)
+            {
+                var urls = new List<string>();
+
+                var domens = Urls.Select(url =>
+                {
+                    Uri.TryCreate(url, new UriCreationOptions(), out Uri uri);
+                    return "https://" + uri.Host;
+                }).Distinct();
+
+                foreach (var domen in domens)
+                {
+                    if (!robotsList.Select(r => r.Host).Contains(domen))
+                    {
+                        urls.Add(domen);
+                        // urls.AddRange(Urls.Where(url => url.Contains(domen)));
+                    }
+                }
+                urls = urls.Distinct().ToList();
+                tasks = GetTaskList(urls, parseUniqueDomens);
+            }
+            else
+            {
+                tasks = GetTaskList(Urls, parseUniqueDomens);
+            }
+
+            await Task.WhenAll(tasks);
+            Console.WriteLine("Done successfully " + DateTime.Now.Subtract(t0).TotalMilliseconds);
+        }
+
+        public List<Task> GetTaskList(List<string> Urls, bool parseUniqueDomens)
+        {
             var semaphore = new SemaphoreSlim(16);
-
             var client = HttpClientFactory.Instance;
 
-            var tasks = Urls.Select(async (url, index) =>
+            return Urls.Select(async (url, index) =>
             {
                 await semaphore.WaitAsync();
                 try
                 {
-                    await ProcessUrlAsync(url, client);
+                    await ProcessUrlAsync(url, client, parseUniqueDomens);
                 }
                 finally
                 {
                     semaphore.Release();
                 }
             }).ToList();
-
-            await Task.WhenAll(tasks);
-            Console.WriteLine("Done successfully " + DateTime.Now.Subtract(t0).TotalMilliseconds);
         }
 
-        async Task ProcessUrlAsync(string newUrl, HttpClient client)
+        async Task ProcessUrlAsync(string newUrl, HttpClient client, bool parseUniqueDomens)
         {
             try
             {
                 if (await dbProvider.ContainsUrlandhtml(newUrl))
+                {
+                    await dbProvider.DeleteAnotherUrl(newUrl);
+                    return;
+                }
+
+                if (await dbProvider.ContainsUnaccessedUrll(newUrl))
                 {
                     await dbProvider.DeleteAnotherUrl(newUrl);
                     return;
@@ -90,10 +125,42 @@ namespace Parse.Service
                 }
 
                 var parsedUrl = await ParseUrlAsync(newUrl, client);
-                if (!string.IsNullOrWhiteSpace(parsedUrl.Text))
-                {
-                    await SaveParsedUrlAsync(parsedUrl);
 
+                if (parseUniqueDomens)
+                {
+                    var domen = new Domen(newUrl) { Sitemap = new List<string>()};
+
+                    var response = await client.GetAsync(domen.Host + "/robots.txt");
+                    if (response.IsSuccessStatusCode)
+                    {
+                        try
+                        {
+                            var resp = await response.Content.ReadAsStringAsync();
+                            var file = resp.Split("\n")
+                                .Select(str => str.ToLower())
+                            .Where(str => str.StartsWith("sitemap"))
+                            .Select(str => str.Replace("sitemap: ", "").Replace("\r", "").Replace("\n", ""))
+                            .Select(str =>
+                            {
+                            if (str.StartsWith('/'))
+                                {
+                                    str = domen.Host + str;
+                                }
+                                return str;
+                            })
+                            .ToList();
+                            
+                            domen.Sitemap = file;
+                        }
+                        catch
+                        {
+
+                        }
+                    }
+
+                    await dbProvider.InsertDomen(domen);
+                    await dbProvider.DeleteAnotherUrl(newUrl);
+                    await dbProvider.InsertAnotherLink(parsedUrl.Links);
                     lock (consoleLock)
                     {
                         var n = Console.GetCursorPosition();
@@ -102,6 +169,23 @@ namespace Parse.Service
                         Console.WriteLine($"Паршу {newUrl}");
                         Console.ForegroundColor = ConsoleColor.White;
                         Console.SetCursorPosition(n.Left, n.Top);
+                    }
+                }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(parsedUrl.Text))
+                    {
+                        await SaveParsedUrlAsync(parsedUrl);
+
+                        lock (consoleLock)
+                        {
+                            var n = Console.GetCursorPosition();
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.SetCursorPosition(0, top);
+                            Console.WriteLine($"Паршу {newUrl}");
+                            Console.ForegroundColor = ConsoleColor.White;
+                            Console.SetCursorPosition(n.Left, n.Top);
+                        }
                     }
                 }
             }
@@ -113,7 +197,7 @@ namespace Parse.Service
 
         static async Task<ParsedUrl> ParseUrlAsync(string newUrl, HttpClient client)
         {
-            var parsedUrl = new ParsedUrl() { URL = newUrl, Links = new List<string>() };
+            var parsedUrl = new ParsedUrl() { URL = /*newUrl.Last() == '/' ? newUrl[..^1] : */newUrl, Links = new List<string>() };
             var request = new HttpRequestMessage(HttpMethod.Get, newUrl);
             var response = await client.SendAsync(request);
 
@@ -133,6 +217,7 @@ namespace Parse.Service
                     parsedUrl.Title = RegexMatches.GetTitle(content);
                     parsedUrl.Text = await RegexMatches.GetTextContent(content);
                     parsedUrl.Links = ExtractLinks(content, uri.Host);
+                    parsedUrl.Meta = RegexMatches.GetMeta(content);
                 }
             }
             return parsedUrl;
@@ -196,6 +281,7 @@ namespace Parse.Service
         async Task SaveParsedUrlAsync(ParsedUrl parsedUrl)
         {
             await dbProvider.DeleteAnotherUrl(parsedUrl.URL);
+            //  if (parsedUrl.URL.Replace("https://", "").Replace("http://", "").Split('/').Length > 2 )
             await dbProvider.InsertParsedUrl(parsedUrl);
             await dbProvider.InsertAnotherLink(parsedUrl.Links);
         }

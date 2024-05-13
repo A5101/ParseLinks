@@ -14,9 +14,16 @@ namespace Parse.Domain
 
         Task InsertParsedUrl(ParsedUrl parsedUrl);
 
+        Task InsertUrlQueue(string url);
+
+        Task InsertUrlQueue(List<string> url);
+
         Task<List<Domen>> InsertDomen(Domen robots);
 
         Task<List<Domen>> GetRobots();
+
+        Task UpdateDomen(Domen domen);
+
         Task<List<ParsedUrl>> GetParsedUrlsTexts();
 
         Task InsertAnotherLink(List<string> urls);
