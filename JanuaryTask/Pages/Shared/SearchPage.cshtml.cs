@@ -7,6 +7,7 @@ using Npgsql;
 using Parse.Domain.Entities;
 using static System.Net.Mime.MediaTypeNames;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace JanuaryTask.Pages.Shared
 {
@@ -63,11 +64,36 @@ namespace JanuaryTask.Pages.Shared
         {
             string connectionString = "Server=localhost; port=5432; user id=postgres; password=sa; database=WebSearchDB;";
 
+            IDbProvider dbProvider = new PostgreDbProvider(connectionString);
+
+            var urls = await dbProvider.GetParsedUrlsTexts();
+
             var glove = GloveInstance.Instance;
 
             double[] requestVector = await glove.GetTextVector(request);
 
+            var coslist = new (ParsedUrl, double)[urls.Count];
+            Parallel.For(0, urls.Count, i =>
+            {
+                coslist[i] = ((urls[i], CosDistance(requestVector, urls[i].Vector)));
+            });
 
+            var res = coslist.OrderByDescending(l => l.Item2).Take(10);
+
+            Result.AddRange(res.Select(c =>
+            {
+                var entityText = c.Item1.Text;
+                int index = entityText.IndexOf(request);
+                int startIndex = Math.Max(0, index - 120);
+                int length = Math.Min(entityText.Length - startIndex, request.Length + 240);
+                return new RequestEntity()
+                {
+                    Url = c.Item1.URL,
+                    MatchContent = entityText.Substring(startIndex, length).Replace(request, $"<strong>{request}</strong>"),
+                    Tittle = c.Item1.Title,
+                    Domain = "Interfax.ru"
+                };
+            }));
 
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             var allPages = new List<ParsedUrl>();

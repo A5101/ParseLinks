@@ -41,51 +41,17 @@ namespace Parse.Service
         {
             if (File.Exists(modelPath))
             {
-                var read = new StreamReader(modelPath);
-                using (var jsonReader = new JsonTextReader(read))
+                using (StreamReader file = File.OpenText(modelPath))
                 {
-                    // Пропуск начального объекта (если необходимо)
-                    if (!jsonReader.Read() || jsonReader.TokenType != JsonToken.StartObject)
-                    {
-                        throw new Exception("Expected start of object");
-                    }
-
-                    var dictionary = new Dictionary<string, double[]>();
-
-                    // Чтение и десериализация JSON-данных
-                    while (jsonReader.Read())
-                    {
-                        if (jsonReader.TokenType == JsonToken.PropertyName)
-                        {
-                            string key = jsonReader.Value.ToString();
-
-                            if (!jsonReader.Read() || jsonReader.TokenType != JsonToken.StartArray)
-                            {
-                                throw new Exception($"Expected start of array for key {key}");
-                            }
-
-                            var values = new List<double>();
-
-                            // Чтение значений массива
-                            while (jsonReader.Read() && jsonReader.TokenType != JsonToken.EndArray)
-                            {
-                                if (jsonReader.TokenType == JsonToken.Float || jsonReader.TokenType == JsonToken.Integer)
-                                {
-                                    values.Add(Convert.ToDouble(jsonReader.Value));
-                                }
-                            }
-
-                            dictionary[key] = values.ToArray();
-                        }
-                    }
-                    read.Close();
+                    JsonSerializer serializer = new JsonSerializer();
+                    var dictionary = (Dictionary<string, double[]>)serializer.Deserialize(file, typeof(Dictionary<string, double[]>));
                     return dictionary;
                 }
-                //var res = JsonConvert.DeserializeObject<Dictionary<string, double[]>>("");
-                read.Close();
-                //return res;
             }
-            return new Dictionary<string, double[]>();
+            else
+            {
+                return new Dictionary<string, double[]>();
+            }
         }
     }
 }

@@ -183,16 +183,16 @@ namespace Parse
                 string jsonFilePath = "vectorcompilation.json";
                 string lentaFilesPath = "lenta_cluster";
                 string jsonData = File.ReadAllText(jsonFilePath);
-                List<LinkParsedJsonVector> myDataList = JsonConvert.DeserializeObject<List<LinkParsedJsonVector>>(jsonData);
-                DirectoryInfo directory = new DirectoryInfo(lentaFilesPath);
-                FileInfo[] files = directory.GetFiles("*.json");
+                List<LinkParsedJsonVector> myDataList = JsonConvert.DeserializeObject<List<LinkParsedJsonVector>>(jsonData).Take(textscount).ToList();
+               // DirectoryInfo directory = new DirectoryInfo(lentaFilesPath);
+               // FileInfo[] files = directory.GetFiles("*.json");
 
-                for (int i = 0; i < textscount; i++)
-                {
-                    string fileJsonData = File.ReadAllText(files[i].FullName);
-                    LinkParsedJsonVector fileDataList = JsonConvert.DeserializeObject<LinkParsedJsonVector>(fileJsonData);
-                    myDataList.Add(fileDataList);
-                }
+                //for (int i = 0; i < textscount; i++)
+                //{
+                //    string fileJsonData = File.ReadAllText(files[i].FullName);
+                //    LinkParsedJsonVector fileDataList = JsonConvert.DeserializeObject<LinkParsedJsonVector>(fileJsonData);
+                //    myDataList.Add(fileDataList);
+                //}
 
                 foreach (var data in myDataList)
                 {
@@ -247,7 +247,7 @@ namespace Parse
             {
                 var queryVector = await glove.GetTextVector(s);
 
-                Clusterize(texts.Take(2000).ToList(), textVectors.Take(2000).ToList(), queryVector);
+                Clusterize(texts.ToList(), textVectors.ToList(), queryVector);
             }
         }
 

@@ -10,7 +10,7 @@ using System.Xml;
 
 namespace Parse.Domain
 {
-    internal class PostgreDbProvider : IDbProvider
+    public class PostgreDbProvider : IDbProvider
     {
         private readonly string connectionString;
 
@@ -363,7 +363,7 @@ namespace Parse.Domain
             var result = new List<ParsedUrl>();
             con.Open();
 
-            string sql = "SELECT url,text FROM urlandhtml";
+            string sql = "SELECT url, text, vector, title FROM urlandhtml where cluster is not null";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
 
@@ -374,6 +374,8 @@ namespace Parse.Domain
                 ParsedUrl parsedUrl = new ParsedUrl();
                 parsedUrl.URL = reader[0].ToString();
                 parsedUrl.Text = reader[1].ToString();
+                parsedUrl.Vector = reader.GetFieldValue<double[]>(2);
+                parsedUrl.Title = reader[3].ToString();
                 result.Add(parsedUrl);
             }
             con.Close();
