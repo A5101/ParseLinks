@@ -208,7 +208,7 @@ namespace Parse
                     }
                     else
                     {
-                        parsedUrl.Text = data.Description;
+                        parsedUrl.Text = Regex.Replace(data.Description, @"<[^>]*>", " ").Replace("&quot;", "");
                         if (!string.IsNullOrWhiteSpace(parsedUrl.Text))
                         {
                             texts.Add(parsedUrl);
@@ -222,7 +222,7 @@ namespace Parse
             {
                 if (!string.IsNullOrWhiteSpace(text.Text))
                 {
-                    textVectors.Add(await glove.GetTextVector(Regex.Replace(text.Text, @"<[^>]*>", " ").Replace("&quot;", "")));
+                    textVectors.Add(await glove.GetTextVector(text.Text));
                 }
             }
 

@@ -13,26 +13,30 @@ namespace JanuaryTask.Pages.Shared
     public class Centroid
     {
         public int clusterNum { get; set; }
-        public double[] vector {  get; set; }
+        public double[] vector { get; set; }
     }
-    public class CentroidWithDistance:Centroid
+
+    public class CentroidWithDistance : Centroid
     {
         public int clusterNum { get; set; }
         public double[] vector { get; set; }
         public double distance { get; set; }
     }
+
     public class SearchPageModel : PageModel
     {
         public void OnGet()
         {
+
         }
 
-        public IActionResult OnPost(string request)
+        public async Task<IActionResult> OnPost(string request)
         {
-            GetFromDb(request);
+            await GetFromDb(request);
             ViewData["SearchQuery"] = request;
             return Page();
         }
+
         static double CosDistance(double[] vector1, double[] vector2)
         {
             double magnitude1 = Math.Sqrt(vector1.Sum(x => x * x));
@@ -48,15 +52,18 @@ namespace JanuaryTask.Pages.Shared
 
             return cosineDistance;
         }
+
         public List<RequestEntity> preResult { get; private set; } = new List<RequestEntity>();
+
         public List<RequestEntity> Result { get; private set; } = new List<RequestEntity>();
+
         public List<Centroid> Centroids { get; set; } = new List<Centroid>();
 
-        public async void GetFromDb(string request)
+        public async Task GetFromDb(string request)
         {
             string connectionString = "Server=localhost; port=5432; user id=postgres; password=sa; database=WebSearchDB;";
 
-            Glove glove = new Glove(modelPath: @"..\Parse\bin\Debug\net7.0\data.json");
+            var glove = GloveInstance.Instance;
 
             double[] requestVector = await glove.GetTextVector(request);
 
@@ -84,7 +91,7 @@ namespace JanuaryTask.Pages.Shared
             double distance = 0;
             List<CentroidWithDistance> centroidWithDistances = new List<CentroidWithDistance>();
 
-            foreach(var centroid in Centroids)
+            foreach (var centroid in Centroids)
             {
                 int clusterNumber = centroid.clusterNum;
                 double[] centroidVector = centroid.vector;
@@ -97,12 +104,12 @@ namespace JanuaryTask.Pages.Shared
                 centroidWithDistance.vector = centroidVector;
                 centroidWithDistance.distance = distance;
 
-                centroidWithDistances.Add(centroidWithDistance); 
+                centroidWithDistances.Add(centroidWithDistance);
             }
             var nearestCentroid = centroidWithDistances.MinBy(c => c.distance);
 
             int nearestCluster = nearestCentroid.clusterNum;
-            NpgsqlConnection connection = new NpgsqlConnection(connectionString);
+            using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             connection.Open();
             string requestS = request;
             string finalSql = $"SELECT * FROM urlandhtml WHERE cluster = {nearestCluster}";
@@ -129,7 +136,7 @@ namespace JanuaryTask.Pages.Shared
                 Result.Add(newEntity);
             }
 
-
+            connection.Close();
             con.Close();
 
         }
