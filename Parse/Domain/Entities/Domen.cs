@@ -65,23 +65,7 @@ namespace Parse.Domain.Entities
             try
             {
                 Host = host;
-                //var client = HttpClientFactory.Instance;
-                //string file = client.GetStringAsync($"{host}/robots.txt").Result;
-                //Content = GetCurrentAgentString(file);
-
-                //if (Uri.TryCreate(host, new UriCreationOptions(), out Uri uri))
-                //{
-                //    var html = client.GetStringAsync("https://" + uri.Host).Result;
-                //    var href = RegexMatches.GetRssHref(html);
-                //    if (href[0] == '/')
-                //    {
-                //        RssLink = "https://" + uri.Host + href;
-                //    }
-                //    else
-                //    {
-                //        RssLink = href;
-                //    }
-                //}
+                
             }
             catch
             {
@@ -95,6 +79,38 @@ namespace Parse.Domain.Entities
             Content = file;
             RssLink = rssLink;
             Sitemap = sitemap;
+        }
+
+        public async Task SetSiteMap()
+        {
+            var client = HttpClientFactory.Instance;
+            var response = await client.GetAsync(Host + "/robots.txt");
+            if (response.IsSuccessStatusCode)
+            {
+                try
+                {
+                    var resp = await response.Content.ReadAsStringAsync();
+                    var file = resp.Split("\n")
+                        .Select(str => str.ToLower())
+                    .Where(str => str.StartsWith("sitemap"))
+                    .Select(str => str.Replace("sitemap: ", "").Replace("\r", "").Replace("\n", ""))
+                    .Select(str =>
+                    {
+                        if (str.StartsWith('/'))
+                        {
+                            str = Host + str;
+                        }
+                        return str;
+                    })
+                    .ToList();
+
+                    Sitemap = file;
+                }
+                catch
+                {
+
+                }
+            }
         }
 
         private string GetCurrentAgentString(string str)

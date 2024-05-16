@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Parse.Domain
 {
-    internal interface IDbProvider
+    public interface IDbProvider
     {
         Task<string> GetAnotherUrlsCount();
 

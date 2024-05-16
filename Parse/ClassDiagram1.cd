@@ -1,0 +1,110 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="Parse.Domain.PostgreDbProvider">
+    <Position X="0.5" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IQAAAAAAAAAAQAgAICIAAAEARUEAAEAAAAABBAAAAIg=</HashCode>
+      <FileName>Db\PostgreDbProvider.cs</FileName>
+    </TypeIdentifier>
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="Parse.Domain.Entities.AnotherUrl">
+    <Position X="0.5" Y="7.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAA=</HashCode>
+      <FileName>Domain\Entities\AnotherUrl.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Domain.Entities.Domen">
+    <Position X="8" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAIAgAAAAABAAAAAAAAAAAQiAABAAAAAAAAAAA=</HashCode>
+      <FileName>Domain\Entities\Domen.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Domain.Entities.ParsedUrl">
+    <Position X="5.5" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAIAAAAAAAAgAEAAAAAAAAAAgCAAAIAACQAACAAAAAA=</HashCode>
+      <FileName>Domain\Entities\ParsedUrl.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Domain.Entities.UnaccessedUrl">
+    <Position X="5.25" Y="8" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAA=</HashCode>
+      <FileName>Domain\Entities\UnaccessedUrl.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.Crawler">
+    <Position X="2.75" Y="5.5" Width="1.75" />
+    <TypeIdentifier>
+      <HashCode>gAAAAAAAQAEAICAgAAAAEAIAAAAAAAACAAAAAAAAIAA=</HashCode>
+      <FileName>Service\Crawler.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.FileManager">
+    <Position X="13.25" Y="7.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAgAAAAAAAAAAAAAAAAAAAAoAAAAAIAAAAAAAA=</HashCode>
+      <FileName>Service\FileManager.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.Glove">
+    <Position X="10.5" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IAAEAIAEQAAAggAAAAAAAAAACAAAAgQgCAgAmAkAAAA=</HashCode>
+      <FileName>Service\Glove.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.HttpClientFactory">
+    <Position X="0.5" Y="5.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAQAAAAAAAAAA=</HashCode>
+      <FileName>Service\HttpClientFactory.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.Lemmatizator">
+    <Position X="13.25" Y="3.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAIgAAAAAAAAAAAAAAAACAEAAAAAAAAAAAAAAgAA=</HashCode>
+      <FileName>Service\Lemmatizator.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.Parser">
+    <Position X="5.5" Y="5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAgAAAABAAAEAAAAAgAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Service\Parser.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.RegexMatches">
+    <Position X="8" Y="5.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAQCSAAAAAIAABAACCAAEIAAIEAAAAAAEAAAA=</HashCode>
+      <FileName>Service\RegexMatches.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="Parse.Service.RSSReader">
+    <Position X="8" Y="3.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAA=</HashCode>
+      <FileName>Service\RSSReader.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="SparseMatrix">
+    <Position X="13" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ABAAAAAAAABACAAACAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Service\SparseMatrix.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Interface Name="Parse.Domain.IDbProvider">
+    <Position X="2.75" Y="0.5" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>IQAAAAAAAAAAQAAAACIAAAEAREEAAEAAAAABBAAAAIg=</HashCode>
+      <FileName>Db\IDbProvider.cs</FileName>
+    </TypeIdentifier>
+  </Interface>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

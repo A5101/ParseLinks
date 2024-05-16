@@ -262,6 +262,8 @@ namespace Parse
            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
            .Build();
 
+
+            
             connectionString = config.GetConnectionString("DefaultConnection");
 
             var db = new PostgreDbProvider(connectionString);
@@ -281,7 +283,7 @@ namespace Parse
                     "https://www.kommersant.ru/"
             };
 
-            Parser parser = new Parser(new PostgreDbProvider(connectionString));
+            Crawler crawler = new Crawler(new PostgreDbProvider(connectionString));
             IDbProvider dbProvider = new PostgreDbProvider(connectionString);
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("Выберите функцию:");
@@ -305,12 +307,13 @@ namespace Parse
 
                 case "1":
                     {
-                        await parser.Parse(urls);
+                        Console.WriteLine("Вы выбрали 1. First parse");
+                        await crawler.Crawl(urls);
                         break;
                     }
                 case "2":
                     {
-                        await parser.Parse();
+                        await crawler.Crawl();
                         break;
                     }
                 case "3":
@@ -327,7 +330,7 @@ namespace Parse
                         int iterationCount = Convert.ToInt32(Console.ReadLine());
                         for (int i = 0; i < iterationCount; i++)
                         {
-                            await parser.Parse();
+                            await crawler.Crawl();
                             Console.ForegroundColor = ConsoleColor.Blue;
                             Console.WriteLine($"Iteration {i} ended succesfully");
                             Console.ForegroundColor = ConsoleColor.White;
@@ -443,12 +446,12 @@ namespace Parse
                     }
                 case "9":
                     {
-                        await parser.Parse(urls, parseUniqueDomens: true);
+                        await crawler.Crawl(urls, parseUniqueDomens: true);
                         break;
                     }
                 case "10":
                     {
-                        await parser.Parse(parseUniqueDomens: true);
+                        await crawler.Crawl(parseUniqueDomens: true);
                         break;
                     }
                 case "11":
