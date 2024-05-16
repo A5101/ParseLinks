@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Npgsql.EntityFrameworkCore.PostgreSQL.Query.Expressions.Internal;
+using Parse.Domain;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -6,7 +8,7 @@ using System.Linq;
 
 namespace Parse.Service
 {
-    internal class KMeans
+    public class KMeans
     {
         /// <summary>
         /// Считываем модель
@@ -41,7 +43,7 @@ namespace Parse.Service
         /// <param name="a"></param>
         /// <param name="b"></param>
         /// <returns></returns>
-        private double EuclideanDistance(double[] a, double[] b)
+        public static double EuclideanDistance(double[] a, double[] b)
         {
             double sum = 0;
             for (int i = 0; i < a.Length; i++)
@@ -78,6 +80,7 @@ namespace Parse.Service
 
         public List<int> Cluster(List<double[]> data, int k)
         {
+            string connectionString = "Server=localhost; port=5432; user id=postgres; password=sa; database=WebSearchDB;";
             Random random = new Random();
             double[][] centroids = new double[k][];
 
@@ -86,21 +89,21 @@ namespace Parse.Service
             for (int centroidIndex = 1; centroidIndex < k; centroidIndex++)
             {
                 Console.WriteLine($"Выбираем центроиду:{centroidIndex}");
-                List<double> distances = new List<double>();
+                double[] distances = new double[data.Count];
                 double totalDistance = 0;
 
-                foreach (double[] point in data)
+                Parallel.For(0, data.Count, x =>
                 {
                     double minDistance = double.MaxValue;
                     foreach (double[] centroid in centroids.Take(centroidIndex))
                     {
-                        double distance = EuclideanDistance(point, centroid);
+                        double distance = EuclideanDistance(data[x], centroid);
                         double distanceSquared = distance * distance;
                         minDistance = Math.Min(minDistance, distanceSquared);
                     }
-                    distances.Add(minDistance);
+                    distances[x] = minDistance;
                     totalDistance += minDistance;
-                }
+                });
 
                 double randValue = random.NextDouble() * totalDistance;
                 double sum = 0;
@@ -167,7 +170,16 @@ namespace Parse.Service
                     }
                 }
             }
+            List<Tuple<double[], int>> result = new List<Tuple<double[], int>>();
+            for (int i = 0; i < k; i++)
+            {
+                result.Add(Tuple.Create(centroids[i], i));
+            }
+          // var db = new PostgreDbProvider(connectionString);
+            //db.InsertCentroids(result);
+           // db.UpdateClusters(clusters);
 
+            Console.WriteLine("Вставки в БД завершены");
             return clusters;
         }
     }

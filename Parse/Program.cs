@@ -18,6 +18,8 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Diagnostics.Metrics;
+using System.Collections.Specialized;
+using System.Resources;
 
 namespace Parse
 {
@@ -199,7 +201,6 @@ namespace Parse
 
                     parsedUrl.Title = data.Title != null ? data.Title : data.Headline;
 
-                    parsedUrl.Tags_ = data.Tags_;
                     if (!string.IsNullOrWhiteSpace(data.Content))
                     {
                         parsedUrl.Text = Regex.Replace(data.Content, @"<[^>]*>", " ").Replace("&quot;", "");
@@ -216,10 +217,6 @@ namespace Parse
                 }
                 Console.WriteLine($"Всего текстов: {texts.Count()}");
             }
-
-
-            //await glove.Learn(texts: texts.Select(text => text.Text).ToArray(), iterations: 30, skipInitialize: false);
-            //glove.Save();
 
             foreach (var text in texts)
             {
@@ -250,7 +247,7 @@ namespace Parse
             {
                 var queryVector = await glove.GetTextVector(s);
 
-                Clusterize(texts, textVectors, queryVector);
+                Clusterize(texts.Take(2000).ToList(), textVectors.Take(2000).ToList(), queryVector);
             }
         }
 
@@ -295,8 +292,8 @@ namespace Parse
             Console.WriteLine("3. Clear DB");
             Console.WriteLine("4. Parse links with iteration");
             Console.WriteLine("5. KMeans Test");
-            Console.WriteLine("6. KMeans from One JSON");
-            Console.WriteLine("7. KMeans from All JSONs");
+            Console.WriteLine("6. KMeans from ALL JSON");
+            Console.WriteLine("7. Add JSON urls in DB");
             Console.WriteLine("9. First parse unique domens");
             Console.WriteLine("10. Another links parse unique domens");
             Console.WriteLine("11. Get all links from domens");
@@ -355,9 +352,67 @@ namespace Parse
                     }
                 case "7":
                     {
-                        Console.ForegroundColor = ConsoleColor.Yellow;
-                        Console.WriteLine("Парсинг всех JSON файлов");
-                        await DisplayInfo(2);
+                        Glove glove = new Glove(modelPath: @"data.json");
+                        string jsonFilePath = "vectorcompilation.json";
+
+                        string lentaFilesPath = "lenta_cluster";
+                        string jsonData = File.ReadAllText(jsonFilePath);
+
+                        List<LinkParsedJsonVector> interfaxList = JsonConvert.DeserializeObject<List<LinkParsedJsonVector>>(jsonData);
+                        List<LinkParsedJsonVector> lentaList = new List<LinkParsedJsonVector>();
+
+                        DirectoryInfo directory = new DirectoryInfo(lentaFilesPath);
+                        FileInfo[] files = directory.GetFiles("*.json");
+
+                        for (int i = 0; i < files.Length; i++)
+                        {
+                            string fileJsonData = File.ReadAllText(files[i].FullName);
+                            LinkParsedJsonVector fileDataList = JsonConvert.DeserializeObject<LinkParsedJsonVector>(fileJsonData);
+                            lentaList.Add(fileDataList);
+                        }
+
+                        List<ParsedUrl> finalList = new List<ParsedUrl>();
+
+                        foreach (var url in interfaxList)
+                        {
+                            if (!string.IsNullOrWhiteSpace(url.Content))
+                            {
+                                finalList.Add(new ParsedUrl()
+                                {
+                                    URL = url.Url,
+                                    Text = url.Content,
+                                    Title = url.Title,
+                                    Vector = url.Vector,
+                                    Links = new List<string>(),
+                                    Meta = " "
+
+                                }) ;
+                            }
+
+                        }
+
+                        int count = 0;
+                        foreach (var url in lentaList)
+                        {
+                            Console.WriteLine(++count);
+                            if (!string.IsNullOrWhiteSpace(url.Description))
+                            {
+                                finalList.Add(new ParsedUrl()
+                                {
+                                    Text = url.Description,
+                                    Title = url.Headline,
+                                    URL = url.Url,
+                                    Vector = await glove.GetTextVector(url.Description.ToLower()),
+                                    Links = new List<string>(),
+                                    Meta = " "
+                                }); 
+                            }
+                        }
+                        foreach (var parsedUrl in finalList)
+                        {
+                            dbProvider.InsertParsedUrl(parsedUrl);
+                        }
+                        Console.WriteLine("Готово");
                         break;
                     }
                 case "8":

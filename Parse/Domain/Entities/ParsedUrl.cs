@@ -13,13 +13,11 @@ namespace Parse.Domain.Entities
         public string URL { get; set; }
 
         public string? Title { get; set; }
-
-        public string Tags_ { get; set; }
+        public int? Cluster { get; set; }
+        public double[] Vector { get; set; }
 
         [Required]
         public string? Text { get; set; }
-
-        public string? Description {get; set; }
 
         public List<string>? Links { get; set; }
 

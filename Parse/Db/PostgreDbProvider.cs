@@ -1,4 +1,5 @@
 ﻿using Npgsql;
+using NpgsqlTypes;
 using Parse.Domain.Entities;
 using System;
 using System.Collections.Generic;
@@ -38,17 +39,18 @@ namespace Parse.Domain
             using NpgsqlConnection con = new NpgsqlConnection(connectionString);
             con.Open();
 
-            string sql = "INSERT INTO urlandhtml (url, title, text,links, date, meta) VALUES (@url, @title, @text, @links, @date, @meta)";
+            string sql = "INSERT INTO urlandhtml (url, title, text,links, date, meta, vector) VALUES (@url, @title, @text, @links, @date, @meta, @vector)";
 
             using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
             cmd.Parameters.AddWithValue("url", parsedUrl.URL);
             cmd.Parameters.AddWithValue("title", parsedUrl.Title);
-            cmd.Parameters.AddWithValue("text", parsedUrl.Text);
+            cmd.Parameters.AddWithValue("text", parsedUrl.Text);  
             cmd.Parameters.AddWithValue("links", parsedUrl.Links);
             cmd.Parameters.AddWithValue("date", parsedUrl.DateAdded);
             cmd.Parameters.AddWithValue("meta", parsedUrl.Meta);
+            cmd.Parameters.AddWithValue("vector", parsedUrl.Vector);
             // cmd.Parameters.AddWithValue("description", parsedUrl.Description);
-
+            int i = 0;
             try
             {
                 await cmd.ExecuteNonQueryAsync();
@@ -190,6 +192,56 @@ namespace Parse.Domain
                 return false;
             }
         }
+        public async Task UpdateClusters(List<int> clusters)
+        {
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            con.Open();
+
+            for (int i = 0; i < clusters.Count; i++)
+            {
+                string sql = $"UPDATE urlandhtml SET cluster = @cluster WHERE id = @id";
+
+                using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+                cmd.Parameters.AddWithValue("cluster", clusters[i]);
+                cmd.Parameters.AddWithValue("id", i + 1);
+
+                try
+                {
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                }
+            }
+
+            con.Close();
+        }
+        public async Task InsertCentroids(List<Tuple<double[], int>> result)
+        {
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            con.Open();
+
+            foreach (var item in result)
+            {
+                string sql = "INSERT INTO centroids (clusternum, vector) VALUES (@clusternum, @vector)";
+
+                using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+                cmd.Parameters.AddWithValue("clusternum", item.Item2);
+                cmd.Parameters.AddWithValue("vector", item.Item1);
+
+                try
+                {
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                }
+            }
+
+            con.Close();
+        }
+
+
 
         public async Task InsertUnaccessedUrl(string url)
         {
