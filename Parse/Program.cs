@@ -1,25 +1,13 @@
-﻿using DeepMorphy;
-using DeepMorphy.Model;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Parse.Domain;
 using Parse.Domain.Entities;
 using Parse.Service;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Xml.Linq;
 using Newtonsoft.Json;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using System.Threading.Tasks;
-using System.Diagnostics;
 using System.IO.Compression;
 using System.Diagnostics.Metrics;
-using System.Collections.Specialized;
-using System.Resources;
 
 namespace Parse
 {
@@ -261,8 +249,7 @@ namespace Parse
            .SetBasePath(Directory.GetCurrentDirectory())
            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
            .Build();
-
-
+           
             
             connectionString = config.GetConnectionString("DefaultConnection");
 
@@ -272,7 +259,7 @@ namespace Parse
             //glove.Save();
             List<string> urls = new List<string>()
             {
-                    "https://www.interfax.ru/business/",
+                "https://www.interfax.ru/business/",
                     "https://www.interfax.ru/culture/",
                     "https://www.sport-interfax.ru/",
                     "https://www.interfax.ru/russia/",
@@ -284,6 +271,9 @@ namespace Parse
             };
 
             Crawler crawler = new Crawler(new PostgreDbProvider(connectionString));
+
+           var html = await Crawler.GetHtmlContent("https://www.interfax.ru/world/949476", HttpClientFactory.Instance);
+            var res = RegexMatches.GetImages(html, "https://www.interfax.ru/world/949476");
             IDbProvider dbProvider = new PostgreDbProvider(connectionString);
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine("Выберите функцию:");
@@ -387,7 +377,6 @@ namespace Parse
                                     Title = url.Title,
                                     Vector = url.Vector,
                                     Links = new List<string>(),
-                                    Meta = " "
 
                                 }) ;
                             }
@@ -407,7 +396,6 @@ namespace Parse
                                     URL = url.Url,
                                     Vector = await glove.GetTextVector(url.Description.ToLower()),
                                     Links = new List<string>(),
-                                    Meta = " "
                                 }); 
                             }
                         }
@@ -454,166 +442,42 @@ namespace Parse
                         await crawler.Crawl(parseUniqueDomens: true);
                         break;
                     }
+                case "12":
+                    {
+                        var sites = await dbProvider.GetParsedUrlsTexts();
+
+                        var semaphore = new SemaphoreSlim(20);
+                        int count = 0;
+                        var tasks = sites.Select(async (site, index) =>
+                        {
+                            await semaphore.WaitAsync();
+                            try
+                            {
+                                var content = await Crawler.GetHtmlContent(site.URL, HttpClientFactory.Instance);
+                                var images = RegexMatches.GetImages(content, site.URL);
+                                await dbProvider.InsertImages(images);
+                            }
+                            catch (Exception ex)
+                            {
+
+                            }
+                            finally
+                            {
+                                semaphore.Release();
+                                Console.WriteLine($"{++count} Сохранил картинки с {site.URL}");
+                            }
+                        }).ToList();
+
+                        await Task.WhenAll(tasks);
+
+                        break;
+                    }
                 case "11":
                     {
                         var client = HttpClientFactory.Instance;
 
                         var domens = await dbProvider.GetRobots();
                         int counter = 0;
-
-                        //                        using var stream = new FileStream(@"file.txt", FileMode.OpenOrCreate);
-                        //                        using var writer = new StreamWriter(stream);
-                        //                        var li = new List<(string, string)>();
-
-
-                        //                        var semaphore = new SemaphoreSlim(100);
-                        //                        var tasks = domens.Select(async (domen, index) =>
-                        //                        {
-                        //                            await semaphore.WaitAsync();
-                        //                            try
-                        //                            {
-                        //                                var content = await client.GetStringAsync(domen.Host);
-                        //                                var ti = RegexMatches.GetTitle(content);
-                        //                                li.Add((domen.Host, ti));
-                        //                                Console.WriteLine(++counter);
-                        //                            }                        
-                        //                            catch (Exception ex)
-                        //                            {
-                        //                                Console.WriteLine($"Ошибка с {domen.Host}");
-                        //                            }
-                        //                            finally
-                        //                            {
-                        //                                semaphore.Release();
-                        //                            }
-                        //                        }).ToList();
-
-                        //                        await Task.WhenAll(tasks);
-
-                        //                        foreach (var domen in li.OrderBy(l => l.Item1))
-                        //                        {
-                        //                            try
-                        //                            {
-                        //                                writer.WriteLine($"Link {domen.Item1}\tTitle {domen.Item2}");
-
-                        //                            }
-                        //                            catch
-                        //                            {
-
-                        //                            }
-                        //                        }
-
-                        //                        writer.Close();
-                        //                        stream.Close();
-
-                        //                        List<string> domains = new List<string>
-                        //        {
-                        //            "*gov.ru",
-                        //            "*24smi.press",
-                        //            "*2gis.ru",
-                        //            "*.livejournal.com",
-                        //            "*.МВД.рф",
-                        //            "*megafon.ru",
-                        //            "*.skype.com",
-                        //            "*.wikibooks.org",
-                        //            "*.msauth.net",
-                        //            "*.msftauth.net",
-                        //            "*.microsoft.com",
-                        //            "*.google",
-                        //            "*.yandex.net",
-                        //            "*.yandex.com",
-                        //            "*2gis.com",
-                        //            "*.azure.com",
-                        //            "*.google.com",
-                        //            "*.habr.com",
-                        //            "*.mail.ru",
-                        //            "*.huaweicloud.com",
-                        //            "*.samsung.com",
-                        //            "*.viber.com",
-                        //            "*.windowsazure.com",
-                        //            "*.xbox.com",
-                        //            "*.firefox.com",
-                        //            "*.azureedge.net",
-                        //            "*.tinkoff.ru",
-                        //            "*.wikipedia.org",
-                        //            "*.trafficgate.net",
-                        //            "*.mozilla.org",
-                        //            "*.adfox.ru",
-                        //            "*.hh.ru",
-                        //            "*.mts.ru",
-                        //            "*.sber.ru",
-                        //            "*.vk.com",
-                        //            "*.withgoogle.com",
-                        //            "*.wiktionary.org",
-                        //            "*.wikiquote.org",
-                        //            "*.android",
-                        //            "*.google.dev",
-                        //            "*.googleblog.com",
-                        //            "*.googleapis.com",
-                        //            "*.wordpress.org",
-                        //            "*.ms",
-                        //            "*.tiktok.com",
-                        //            "*.googlesource.com",
-                        //            "*.web.app",
-                        //            "*.wikimedia.org",
-                        //            "*.netlify.com",
-                        //            "*.tilda.cc",
-                        //            "*.flickr.com",
-                        //            "*.ok.ru",
-                        //            "*.twitch.com",
-                        //            "*.vk.me",
-                        //           " *.pinterest.com",
-                        //"*.wikisource.org",
-                        //"*.wikiversity.org",
-                        //"*.wikinews.org",
-                        //"*.wikivoyage.org",
-                        //"wordpress.com",
-                        //"*.twitch.tv",
-                        //        };
-                        //                        List<Regex> exclusionPatterns = new List<Regex>();
-
-                        //                        foreach (var domainMask in domains)
-                        //                        {
-                        //                            string regexPattern = "^" + Regex.Escape(domainMask)
-                        //                                                  .Replace(@"\*", ".*")
-                        //                                                  .Replace(@"\?", ".")
-                        //                                                  + "$";
-                        //                            exclusionPatterns.Add(new Regex(regexPattern, RegexOptions.IgnoreCase));
-                        //                        }
-                        //                        var res = new List<string>();
-                        //                        foreach (var domain in domens)
-                        //                        {
-                        //                            bool excluded = false;
-                        //                            foreach (var pattern in exclusionPatterns)
-                        //                            {
-                        //                                if (pattern.IsMatch(domain.Host))
-                        //                                {
-                        //                                    excluded = true;
-                        //                                    break;
-                        //                                }
-                        //                            }
-
-                        //                            if (excluded)
-                        //                            {
-                        //                                // Console.WriteLine($"Домен {domain.Host} исключен.");
-                        //                            }
-                        //                            else
-                        //                            {
-                        //                                res.Add(domain.Host);
-                        //                            }
-                        //                        }
-
-                        //                        Dictionary<string, List<string>> groupedUrls = GroupUrlsByMask(res);
-
-                        //                        var s = groupedUrls.OrderByDescending(d => d.Value.Count);
-
-
-
-
-
-
-
-
-                        //                        //Console.WriteLine(string.Join("\n", res.OrderBy(r => r)));
 
                         Console.ReadKey();
                         var semaphore = new SemaphoreSlim(100);
@@ -672,97 +536,9 @@ namespace Parse
 
 
                         var links = new List<string>(20000000);
-                        //int links = 0;
                         counter = 0;
-                        //foreach (var domen in domens)
-                        //{
-                        //    int linksCount = 0;
-                        //    foreach (var map in domen.Sitemap)
-                        //    {
-                        //        try
-                        //        {
-                        //            var pages = await Process(map);
-                        //            linksCount += pages.Count;
-                        //            links.AddRange(pages);
-                        //        }
-                        //        catch
-                        //        {
-
-                        //        }
-                        //    }
-                        //    Console.WriteLine($"Count {counter++} domen {domen.Host} links {linksCount}");
-                        //}
-
-                        //var semaphore = new SemaphoreSlim(100);
-                        //var tasks = domens.Select(async (domen, index) =>
-                        //{
-                        //    await semaphore.WaitAsync();
-                        //    try
-                        //    {
-                        //        int linksCount = 0;
-                        //        foreach (var map in domen.Sitemap)
-                        //        {
-                        //            try
-                        //            {
-                        //                var pages = await Process(map);
-                        //                linksCount += pages.Count;
-
-
-                        //                //  await dbProvider.InsertUrlQueue(pages);
-
-
-                        //                links.AddRange(pages);
-                        //            }
-                        //            catch (Exception ex)
-                        //            {
-                        //                Console.WriteLine();
-                        //            }
-                        //        }
-                        //        //links += linksCount;
-                        //        // domen.isParsed = true;
-                        //        // await dbProvider.UpdateDomen(domen);
-                        //        Console.WriteLine($"Count {counter++} domen {domen.Host} links {linksCount} total links {links.Count}");
-                        //    }
-                        //    catch (Exception ex)
-                        //    {
-                        //        Console.WriteLine($"Ошибка с {domen.Host}");
-                        //    }
-                        //    finally
-                        //    {
-                        //        semaphore.Release();
-                        //    }
-                        //}).ToList();
-
-                        //await Task.WhenAll(tasks);
+                      
                         int i = 0;
-                        //var semaphore = new SemaphoreSlim(30);
-                        //int counter = 0;
-                        //var tasks = domens.Select(async (domen, index) =>
-                        //{
-                        //    await semaphore.WaitAsync();
-                        //    try
-                        //    {
-                        //        Console.WriteLine($"Count {counter++}   {domen.Host}");
-                        //        var response = await client.GetAsync(domen.Host + "/robots.txt");
-                        //        if (response.IsSuccessStatusCode)
-                        //        {
-                        //            var resp = await response.Content.ReadAsStringAsync();
-                        //            var file = resp.Split("\n")
-                        //            .Where(str => str.ToLower().StartsWith("sitemap"))
-                        //            .Select(str => str.Replace("Sitemap: ", "").Replace("\r", "").Replace("\n", ""))
-                        //            .ToList();
-
-                        //            domen.Sitemap = file;
-                        //            await dbProvider.UpdateDomen(domen);
-                        //        }
-                        //    }
-                        //    finally
-                        //    {
-                        //        semaphore.Release();
-                        //    }
-                        //}).ToList();
-
-                        //await Task.WhenAll(tasks);
 
                         break;
                     }

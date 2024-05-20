@@ -8,8 +8,14 @@ using System.Threading.Tasks;
 
 namespace Parse.Domain.Entities
 {
+    /// <summary>
+    /// Представляет класс сущности ссылки в очереди
+    /// </summary>
     public class AnotherUrl
     {
+        /// <summary>
+        /// Свойство, содержащее адрес
+        /// </summary>
         [Key]
         public string Url { get; set; }
     }

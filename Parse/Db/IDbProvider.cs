@@ -18,6 +18,8 @@ namespace Parse.Domain
 
         Task InsertUrlQueue(List<string> url);
 
+        Task InsertImages(List<Image> image);
+
         Task<List<Domen>> InsertDomen(Domen robots);
 
         Task<List<Domen>> GetRobots();

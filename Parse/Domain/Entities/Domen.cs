@@ -104,12 +104,24 @@ namespace Parse.Domain.Entities
                     })
                     .ToList();
 
-                    Sitemap = file;
+                    if (file.Any())
+                    { 
+                        Sitemap = file;
+                    }
+                    else
+                    {
+                        Sitemap = new List<string>();
+                    }
+                   
                 }
                 catch
                 {
-
+                    Sitemap = new List<string>();
                 }
+            }
+            else
+            {
+                Sitemap = new List<string>();
             }
         }
 
