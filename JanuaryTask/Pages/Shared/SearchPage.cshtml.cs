@@ -8,6 +8,9 @@ using Parse.Domain.Entities;
 using static System.Net.Mime.MediaTypeNames;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Newtonsoft.Json.Linq;
+using System.Globalization;
+using System.Text.Json;
 
 namespace JanuaryTask.Pages.Shared
 {
@@ -35,8 +38,46 @@ namespace JanuaryTask.Pages.Shared
         {
             await GetFromDb(request);
             ViewData["SearchQuery"] = request;
+            USD = await GetRate("USD");
+            EUR = await GetRate("EUR");
             return Page();
         }
+        public async Task<double> GetRate(string valuteName)
+        {
+            string apiUrl = "https://www.cbr-xml-daily.ru/daily_json.js";
+
+            using HttpClient httpClient = new HttpClient();
+            string response = await httpClient.GetStringAsync(apiUrl);
+
+            JsonDocument jsonResponse = JsonDocument.Parse(response);
+            JsonElement usdElement = jsonResponse.RootElement.GetProperty("Valute").GetProperty("USD");
+            JsonElement eurElement = jsonResponse.RootElement.GetProperty("Valute").GetProperty("EUR");
+
+            if (valuteName == "USD")
+            {
+                if (usdElement.GetProperty("Value").TryGetDouble(out double usdRate))
+                {
+                    return usdRate;
+                }
+                else
+                {
+                    return 99.3026;
+                }
+            }
+            else
+            {
+                if (eurElement.GetProperty("Value").TryGetDouble(out double eurRate))
+                {
+                    return eurRate;
+                }
+                else
+                {
+                    return 100.1873;
+                }
+            }
+
+        }
+
 
         static double CosDistance(double[] vector1, double[] vector2)
         {
@@ -54,11 +95,17 @@ namespace JanuaryTask.Pages.Shared
             return cosineDistance;
         }
 
+
         public List<RequestEntity> preResult { get; private set; } = new List<RequestEntity>();
 
         public List<RequestEntity> Result { get; private set; } = new List<RequestEntity>();
 
+        public List<string> imagesFromResult { get; private set; } = new List<string>();
+
         public List<Centroid> Centroids { get; set; } = new List<Centroid>();
+
+        public double USD { get; set; } = new double();
+        public double EUR { get; set; } = new double();
 
         public async Task GetFromDb(string request)
         {
@@ -92,6 +139,7 @@ namespace JanuaryTask.Pages.Shared
                     MatchContent = entityText.Substring(startIndex, length).Replace(request, $"<strong>{request}</strong>"),
                     Tittle = c.Item1.Title,
                     Domain = "Interfax.ru"
+                    
                 };
             }));
 
@@ -138,7 +186,7 @@ namespace JanuaryTask.Pages.Shared
             using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
             connection.Open();
             string requestS = request;
-            string finalSql = $"SELECT * FROM urlandhtml WHERE cluster = {nearestCluster}";
+            string finalSql = $"SELECT urlandhtml.url, urlandhtml.title, urlandhtml.text, images.url FROM urlandhtml JOIN images ON images.sourceurl = urlandhtml.url WHERE cluster = {nearestCluster}";
             NpgsqlCommand finalCmd = new NpgsqlCommand(finalSql, connection);
             NpgsqlDataReader finalReader = finalCmd.ExecuteReader();
 
@@ -148,11 +196,13 @@ namespace JanuaryTask.Pages.Shared
                 newEntity.Url = finalReader[0].ToString();
                 string entityHtml = finalReader[1].ToString();
                 string entityText = finalReader[2].ToString();
+                string entityImage = finalReader[3].ToString();
 
                 Uri uri = new Uri(newEntity.Url);
                 newEntity.Domain = uri.Host;
 
                 newEntity.Tittle = entityHtml;
+                newEntity.ImageSrc = entityImage;
                 int index = entityText.IndexOf(request);
                 int startIndex = Math.Max(0, index - 120);
                 int length = Math.Min(entityText.Length - startIndex, request.Length + 240);
@@ -161,6 +211,7 @@ namespace JanuaryTask.Pages.Shared
 
                 Result.Add(newEntity);
             }
+
 
             connection.Close();
             con.Close();
