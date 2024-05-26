@@ -5,7 +5,7 @@ VisualStudioVersion = 17.7.34202.233
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Parse", "Parse\Parse.csproj", "{BA6B3411-AD6D-4C6C-8AE2-2E39897630C1}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{B0AC2870-A0E1-4368-8175-42ABEF552172}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ParseTests", "Tests\ParseTests.csproj", "{B0AC2870-A0E1-4368-8175-42ABEF552172}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "JanuaryTask", "JanuaryTask\JanuaryTask.csproj", "{4BD00F90-8178-4FBA-92C2-E3DB71651014}"
 EndProject
