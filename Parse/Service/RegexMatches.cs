@@ -53,6 +53,14 @@ namespace Parse.Service
                 res = Regex.Match(res.Value, @"content=""([^""]*)""");
                 return res.Groups[1].Value;
             }
+            else
+            {
+                res = Regex.Match(html, @"""datePublished"":""([^""]*)""");
+                if (res.Success)
+                {
+                    return res.Groups[1].Value;
+                }
+            }
             return "";
         }
 
