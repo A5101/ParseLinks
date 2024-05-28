@@ -414,5 +414,21 @@ namespace Parse.Service
         {
             FileManager.SaveModel(Model);
         }
+
+        public static double CosDistance(double[] vector1, double[] vector2)
+        {
+            double magnitude1 = Math.Sqrt(vector1.Sum(x => x * x));
+            double magnitude2 = Math.Sqrt(vector2.Sum(x => x * x));
+
+            double dotProduct = 0;
+            for (int i = 0; i < vector1.Length; i++)
+            {
+                dotProduct += vector1[i] * vector2[i];
+            }
+
+            double cosineDistance = dotProduct / (magnitude1 * magnitude2);
+
+            return cosineDistance;
+        }
     }
 }

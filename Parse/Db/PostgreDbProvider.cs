@@ -772,5 +772,100 @@ namespace Parse.Domain
             // Возврат списка descriptions.
             return descriptions;
         }
+
+        public async Task<List<RequestEntity>> GetRequestEntities(int clusterNum, string request)
+        {
+            var entites = new List<RequestEntity>();
+            using NpgsqlConnection connection = new NpgsqlConnection(connectionString);
+            connection.Open();
+            string finalSql = $"SELECT urlandhtml.url, urlandhtml.title, urlandhtml.text, images.url FROM urlandhtml JOIN images ON images.sourceurl = urlandhtml.url WHERE cluster = {clusterNum}";
+            NpgsqlCommand finalCmd = new NpgsqlCommand(finalSql, connection);
+            NpgsqlDataReader finalReader = finalCmd.ExecuteReader();
+
+            while (finalReader.Read())
+            {
+                RequestEntity newEntity = new RequestEntity();
+                newEntity.Url = finalReader[0].ToString();
+                string entityHtml = finalReader[1].ToString();
+                string entityText = finalReader[2].ToString();
+                string entityImage = finalReader[3].ToString();
+
+                Uri uri = new Uri(newEntity.Url);
+                newEntity.Domain = uri.Host;
+
+                newEntity.Tittle = entityHtml;
+                newEntity.ImageSrc = entityImage;
+                int index = entityText.IndexOf(request);
+                int startIndex = Math.Max(0, index - 120);
+                int length = Math.Min(entityText.Length - startIndex, request.Length + 240);
+                newEntity.MatchContent = entityText.Substring(startIndex, length).Replace(request, $"<strong>{request}</strong>"); ;
+
+
+                entites.Add(newEntity);
+            }
+
+
+            connection.Close();
+
+            return entites;
+        }
+
+        public async Task<List<Centroid>> GetCentroids()
+        {
+            var res = new List<Centroid>();
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            var allPages = new List<ParsedUrl>();
+            con.Open();
+
+            string sql = "SELECT clusternum,vector FROM centroids";
+
+            using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+
+            using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
+
+            while (reader.Read())
+            {
+                Centroid centroid = new Centroid();
+                centroid.clusterNum = Convert.ToInt32(reader[0]);
+                centroid.vector = centroid.vector = reader.GetFieldValue<double[]>(1);
+                res.Add(centroid);
+
+            }
+            con.Close();
+            return res;
+        }
+
+        public async Task InsertApiEntity(ParsedUrl parsedUrl)
+        {          
+            // Создание объекта NpgsqlConnection для подключения к базе данных.
+            using NpgsqlConnection con = new NpgsqlConnection(connectionString);
+            // Открытие подключения к базе данных.
+            con.Open();
+
+            // SQL-запрос для вставки данных в таблицу domen.
+            string sql = "INSERT INTO urlandhtml (url, text, title, datepublished, vector) VALUES (@url, @text, @title, @datepublished, @vector) on conflict do nothing";
+
+            // Создание объекта NpgsqlCommand для выполнения SQL-запроса.
+            using NpgsqlCommand cmd = new NpgsqlCommand(sql, con);
+            // Добавление значений для параметров @host, @sitemap и @isparsed в объект cmd.Parameters.
+            cmd.Parameters.AddWithValue("url", parsedUrl.URL);
+            cmd.Parameters.AddWithValue("text", parsedUrl.Text);
+            cmd.Parameters.AddWithValue("title", parsedUrl.Title);
+            cmd.Parameters.AddWithValue("datepublished", parsedUrl.DatePublished);
+            cmd.Parameters.AddWithValue("vector", parsedUrl.Vector);
+
+            try
+            {
+                // Асинхронное выполнение запроса с помощью метода ExecuteNonQueryAsync().
+                var res = await cmd.ExecuteNonQueryAsync();
+
+                // Закрытие текущего подключения.
+                con.Close();
+            }
+            catch (Exception ex)
+            {
+                con.Close();
+            }
+        }
     }
 }

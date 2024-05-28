@@ -24,5 +24,5 @@ app.UseRouting();
 app.UseAuthorization();
 
 app.MapRazorPages();
-await GloveInstance.Instance.GetTextVector("обои");
+
 app.Run();

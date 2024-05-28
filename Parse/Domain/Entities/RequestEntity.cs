@@ -1,4 +1,4 @@
-﻿namespace JanuaryTask.Pages.Shared.Models
+﻿namespace Parse.Domain
 {
     public class RequestEntity
     {

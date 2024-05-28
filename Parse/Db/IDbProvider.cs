@@ -44,5 +44,10 @@ namespace Parse.Domain
 
         Task Truncate();
 
+        Task<List<RequestEntity>> GetRequestEntities(int clusterNum, string request);
+
+        Task<List<Centroid>> GetCentroids();
+
+        Task InsertApiEntity(ParsedUrl parsedUrl);
     }
 }
