@@ -21,7 +21,7 @@ namespace Parse.Service
         public static void SaveLemms(Dictionary<string, string> lemms)
         {
             // Создаем объект StreamWriter для записи в файл "lemms.json".
-            var write = new StreamWriter(@"lemms.json");
+            var write = new StreamWriter(@"..\Parse\bin\Debug\net7.0\lemms.json");
 
             // Преобразуем словарь лемм в строку формата JSON и записываем ее в файл.
             write.WriteLine(JsonConvert.SerializeObject(lemms));
@@ -36,11 +36,12 @@ namespace Parse.Service
         /// <returns>Словарь, содержащий леммы.</returns>
         public static Dictionary<string, string> OpenLemms()
         {
+            
             // Проверяем, существует ли файл "lemms.json".
-            if (File.Exists(@"lemms.json"))
+            if (File.Exists(@"..\Parse\bin\Debug\net7.0\lemms.json"))
             {
                 // Создаем объект StreamReader для чтения из файла "lemms.json".
-                var read = new StreamReader(@"lemms.json");
+                var read = new StreamReader(@"..\Parse\bin\Debug\net7.0\lemms.json");
 
                 // Читаем все содержимое файла и десериализуем его в словарь.
                 var res = JsonConvert.DeserializeObject<Dictionary<string, string>>(read.ReadToEnd());

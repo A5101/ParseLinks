@@ -22,7 +22,7 @@ namespace JanuaryTask.Pages.Shared
         public async Task<IActionResult> OnPost(string request)
         {
             HttpClient httpClient = new HttpClient();
-            var response = await httpClient.GetAsync($"https://localhost:5004/search/{request}");
+            var response = await httpClient.GetAsync($"https://localhost:7002/search/{request}");
             if (response.IsSuccessStatusCode)
             {
                 Result.AddRange(await response.Content.ReadFromJsonAsync<IEnumerable<RequestEntity>>());
